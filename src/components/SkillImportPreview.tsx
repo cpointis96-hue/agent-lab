@@ -1,0 +1,6 @@
+import type { ImportFile } from "../domain/skills";
+import { TrustBadge } from "./TrustBadge";
+
+export function SkillImportPreview({ skillName, files, collisions, hasExecutableLookingFiles, onCancel, onImport }: { skillName: string; files: ImportFile[]; collisions: string[]; hasExecutableLookingFiles: boolean; onCancel: () => void; onImport: () => void }) {
+  return <div className="modal-backdrop"><section className="agent-dialog skill-import-dialog" role="dialog" aria-label="Skill import preview"><span className="eyebrow">SKILL IMPORT PREVIEW</span><h2>{skillName}</h2><p>Nothing is copied or executed until you explicitly import.</p><TrustBadge status="Local · inert" />{hasExecutableLookingFiles && <p className="template-warning">Warning: executable-looking files are present. They remain inert; Agent Lab will not run them.</p>}<div className="skill-import-files">{files.map((file) => <code key={file.path}>{file.path} · {file.size} B {file.executableLooking ? "· script-looking" : ""}</code>)}</div>{collisions.length > 0 && <p className="template-warning">Collision: {collisions.join(", ")}</p>}<div className="dialog-actions"><button className="quiet-button" onClick={onCancel}>Cancel</button><button className="primary-button" disabled={collisions.length > 0} onClick={onImport}>Import inert skill</button></div></section></div>;
+}

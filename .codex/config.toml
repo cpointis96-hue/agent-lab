@@ -1,0 +1,5 @@
+[agents]
+enabled = true
+# Reserve one lifecycle slot for recovery while the project policy keeps one
+# implementation writer active at a time.
+max_concurrent_threads_per_session = 2
