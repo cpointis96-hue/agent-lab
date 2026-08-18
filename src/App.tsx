@@ -89,7 +89,7 @@ import { SkillImportPreview } from "./components/SkillImportPreview";
 import type { SkillImportPreview as SkillImportPreviewData } from "./services/projectService";
 import { proposalForTemplate, type WorkflowTemplate } from "./templates/workflows";
 import { Button } from "./components/ui/button";
-import { Bot, ChevronDown, ChevronRight, Eye, FilePlus2, FolderOpen, Plus, Save, Sparkles, Trash2, Workflow, X } from "lucide-react";
+import { Bot, ChevronDown, ChevronRight, Eye, FilePlus2, FolderOpen, MoreHorizontal, PanelLeft, PanelRight, Plus, Save, Search, Sparkles, Trash2, Workflow, X } from "lucide-react";
 import type { RunEvent, RunSummary } from "./domain/runs";
 import { RunControls, RunInspector } from "./components/RunControls";
 import { RunTrace } from "./components/RunTrace";
@@ -151,10 +151,42 @@ export function App() {
   const [selectedRun, setSelectedRun] = useState<RunSummary | null>(null);
   const [runEvents, setRunEvents] = useState<RunEvent[]>([]);
   const [runTask, setRunTask] = useState("Review the selected agent's local task.");
+  const [navigatorCollapsed, setNavigatorCollapsed] = useState(false);
+  const [flowCollapsed, setFlowCollapsed] = useState(false);
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const [rawFilesOpen, setRawFilesOpen] = useState(false);
+  const [fileFilter, setFileFilter] = useState("");
+  const [navWidth, setNavWidth] = useState(() => Number(localStorage.getItem("agent-lab.nav-width")) || 248);
+  const [flowWidth, setFlowWidth] = useState(() => Number(localStorage.getItem("agent-lab.flow-width")) || 360);
+  const [draggingDivider, setDraggingDivider] = useState<"nav" | "flow" | null>(null);
   const selectedAgent = useMemo(
     () => project?.agents.find((agent) => agent.id === selectedAgentId) ?? null,
     [project, selectedAgentId],
   );
+  const workspaceStyle = {
+    gridTemplateColumns: `${navigatorCollapsed ? "0px" : `${navWidth}px`} ${navigatorCollapsed ? "0px" : "5px"} minmax(320px, 1fr) ${flowCollapsed ? "0px" : "5px"} ${flowCollapsed ? "0px" : `${flowWidth}px`}`,
+  };
+  useEffect(() => {
+    if (!draggingDivider) return;
+    const move = (event: PointerEvent) => {
+      if (draggingDivider === "nav") {
+        const next = Math.min(360, Math.max(190, event.clientX));
+        setNavWidth(next);
+        localStorage.setItem("agent-lab.nav-width", String(next));
+      } else {
+        const next = Math.min(520, Math.max(280, window.innerWidth - event.clientX));
+        setFlowWidth(next);
+        localStorage.setItem("agent-lab.flow-width", String(next));
+      }
+    };
+    const stop = () => setDraggingDivider(null);
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", stop, { once: true });
+    return () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", stop);
+    };
+  }, [draggingDivider]);
   useEffect(() => {
     if (project) dispatchSimulation({ type: "load", project });
   }, [project?.root, project?.graph.edges.length, project?.graph.nodes.length]);
@@ -339,6 +371,21 @@ export function App() {
         event.preventDefault();
         setPaletteOpen(true);
       }
+      if ((event.metaKey || event.ctrlKey) && event.key === "1") {
+        event.preventDefault();
+        setNavigatorCollapsed(false);
+        setFlowCollapsed(true);
+      }
+      if ((event.metaKey || event.ctrlKey) && event.key === "2") {
+        event.preventDefault();
+        setNavigatorCollapsed(false);
+        setFlowCollapsed(false);
+      }
+      if ((event.metaKey || event.ctrlKey) && event.key === "3") {
+        event.preventDefault();
+        setNavigatorCollapsed(true);
+        setFlowCollapsed(false);
+      }
     };
     window.addEventListener("keydown", listener);
     return () => window.removeEventListener("keydown", listener);
@@ -364,6 +411,7 @@ export function App() {
     );
   }
   const tree = buildFileTree(files);
+  const filteredTree = filterTree(tree, fileFilter);
   const applySelectedTemplate = async (template: WorkflowTemplate) => {
     setBusy(true);
     setNotice(null);
@@ -451,7 +499,7 @@ export function App() {
   return (
     <div className="app-shell">
       <header className="topbar">
-        <div className="brand-mark">Agent Lab</div>
+        <div className="brand-mark"><span className="brand-dot" aria-hidden="true" />Agent Lab</div>
         <div className="project-heading">
           <span className="eyebrow">LOCAL PROJECT</span>
           <strong>{project.project.name}</strong>
@@ -468,24 +516,55 @@ export function App() {
         </div>
         <div className="topbar-actions">
           <Button
-            variant="outline"
-            size="sm"
+            variant="ghost"
+            size="icon"
+            title="Close project"
+            aria-label="Close project"
             onClick={() => {
               setProject(null);
               setEditor(null);
               setFiles([]);
             }}
-          >Close project</Button>
-          <Button variant="outline" size="sm" onClick={() => setTemplatesOpen(true)}><Workflow />Templates</Button>
-          <Button variant="outline" size="sm" onClick={() => setAssistantOpen(true)}><Sparkles />AI Assistant</Button>
+          ><X /></Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            title={navigatorCollapsed ? "Show navigator" : "Hide navigator"}
+            aria-label={navigatorCollapsed ? "Show navigator" : "Hide navigator"}
+            onClick={() => setNavigatorCollapsed((value) => !value)}
+          ><PanelLeft /></Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            title={flowCollapsed ? "Show flow" : "Hide flow"}
+            aria-label={flowCollapsed ? "Show flow" : "Hide flow"}
+            onClick={() => setFlowCollapsed((value) => !value)}
+          ><PanelRight /></Button>
+          <div className="toolbar-menu-wrap">
+            <Button
+              variant="ghost"
+              size="icon"
+              title="More project actions"
+              aria-label="More project actions"
+              aria-expanded={moreMenuOpen}
+              onClick={() => setMoreMenuOpen((value) => !value)}
+            ><MoreHorizontal /></Button>
+            {moreMenuOpen && (
+              <div className="toolbar-menu" role="menu">
+                <button role="menuitem" onClick={() => { setMoreMenuOpen(false); setTemplatesOpen(true); }}><Workflow />Templates</button>
+                <button role="menuitem" onClick={() => { setMoreMenuOpen(false); setAssistantOpen(true); }}><Sparkles />AI Assistant</button>
+                <button role="menuitem" onClick={() => { setMoreMenuOpen(false); setPaletteOpen(true); }}><Search />Command palette</button>
+              </div>
+            )}
+          </div>
         </div>
       </header>
       {notice && <div className={`notice ${notice.tone}`} role="alert" aria-live="assertive">{notice.message}
       </div>}
-      <main className="workspace">
-        <aside className="navigator panel">
+      <main className={`workspace ${draggingDivider ? "is-resizing" : ""}`} style={workspaceStyle}>
+        <aside className={`navigator panel ${navigatorCollapsed ? "pane-collapsed" : ""}`}>
           <div className="panel-header">
-            <span className="eyebrow">PROJECT FILES</span>
+            <span className="eyebrow">PROJECT</span>
             <div>
               <Button
                 variant="outline"
@@ -516,8 +595,22 @@ export function App() {
               ><Plus /></Button>
             </div>
           </div>
-          <div className="tree" aria-label="Project filesystem">
-            {tree.map((node) => (
+          <div className="navigator-search">
+            <Search aria-hidden="true" />
+            <input value={fileFilter} onChange={(event) => setFileFilter(event.target.value)} placeholder="Filter project" aria-label="Filter project" />
+            <kbd>⌘F</kbd>
+          </div>
+          <section className="navigator-group">
+            <div className="navigator-group-heading"><span>AGENTS</span><small>{project.agents.length}</small></div>
+            {project.agents.length === 0
+              ? <p className="navigator-empty">No agents yet. Use <strong>+</strong> to create one.</p>
+              : <div className="agent-list" aria-label="Agents">{project.agents.map((agent) => <button key={agent.id} className={`agent-list-item ${selectedAgentId === agent.id ? "selected" : ""}`} onClick={() => void selectAgent(agent)}><Bot /><span><strong>{agent.name}</strong><small>{agent.purpose}</small></span></button>)}</div>}
+          </section>
+          <section className="navigator-group navigator-group-files">
+            <button className="navigator-disclosure" onClick={() => setRawFilesOpen((value) => !value)} aria-expanded={rawFilesOpen}><span><ChevronRight className={rawFilesOpen ? "rotated" : ""} />PROJECT FILES</span><small>{files.length}</small></button>
+          </section>
+          {rawFilesOpen && <div className="tree" aria-label="Project filesystem">
+            {filteredTree.map((node) => (
               <TreeNode
                 key={node.path}
                 node={node}
@@ -528,7 +621,7 @@ export function App() {
                 onRequestDelete={(agentId) => void requestDeleteAgent(agentId)}
               />
             ))}
-          </div>
+          </div>}
           <FileCatalog mode={mode} />
           <div className="navigator-footer">
             <div className="navigator-footer-heading">
@@ -548,6 +641,7 @@ export function App() {
             <code>{project.root}</code>
           </div>
         </aside>
+        {!navigatorCollapsed && <PaneDivider side="nav" onStart={() => setDraggingDivider("nav")} />}
         <section className="inspector panel">
           <div className="panel-header editor-header">
             <div>
@@ -603,7 +697,8 @@ export function App() {
               </div>
             )}
         </section>
-        <section className="flow panel">
+        {!flowCollapsed && <PaneDivider side="flow" onStart={() => setDraggingDivider("flow")} />}
+        <section className={`flow panel ${flowCollapsed ? "pane-collapsed" : ""}`}>
           <div className="panel-header">
             <span className="eyebrow">FLOW</span>
             <div className="panel-tools">
@@ -612,22 +707,26 @@ export function App() {
                 node{project.graph.nodes.length === 1 ? "" : "s"}
               </span>
               <Button
-                variant="outline"
-                size="sm"
+                variant="ghost"
+                size="icon"
+                title="Rename selected agent"
+                aria-label="Rename selected agent"
                 onClick={() => setRenameDialogOpen(true)}
                 disabled={busy || !selectedAgent}
-              >Rename</Button>
+              ><span className="toolbar-letter">Aa</span></Button>
               <Button
-                variant="outline"
-                size="sm"
+                variant="ghost"
+                size="icon"
+                title="Move selected agent to recovery"
+                aria-label="Move selected agent to recovery"
                 onClick={() => selectedAgent && void requestDeleteAgent(selectedAgent.id)}
                 disabled={busy || !selectedAgent}
-              >Delete</Button>
-              <Button variant="outline" size="sm" onClick={() => {
+              ><Trash2 /></Button>
+              <Button variant="ghost" size="icon" title="Connect agents" aria-label="Connect agents" onClick={() => {
                 const source = selectedAgentId ?? project.graph.nodes[0]?.id;
                 const target = project.graph.nodes.find((node) => node.id !== source)?.id;
                 if (source && target) setEdgeDraft({ ...defaultEdge(source, target), id: "new-edge" });
-              }} disabled={busy || project.graph.nodes.length < 2}>Connect</Button>
+              }} disabled={busy || project.graph.nodes.length < 2}><Workflow /></Button>
             </div>
           </div>
           <div className="flow-canvas">
@@ -675,18 +774,10 @@ export function App() {
             {simulation.events[simulation.cursor] && <div className={`simulation-packet ${simulation.playing ? "moving" : ""}`} role="status" aria-live="polite">● {simulation.events[simulation.cursor].payload}</div>}
           </div>
           <div className="flow-footer">Drag a node to save its layout. {project.graph.edges.length > 0 && <span className="edge-summary">{project.graph.edges.length} relation{project.graph.edges.length === 1 ? "" : "s"}</span>}</div>
-          <SimulationControls state={simulation} dispatch={dispatchSimulation} />
-          <TracePanel state={simulation} onSelect={setSelectedSimulationEvent} />
-          <LessonPanel selected={selectedLesson} onSelect={setSelectedLesson} />
-          <ContextResetExercise />
-          <RunControls agents={project.agents} selectedAgentId={selectedAgentId} task={runTask} onTask={setRunTask} onStart={() => void startLocalRun()} busy={busy} />
-          <div className="run-list panel-section" aria-label="Durable runs"><div className="section-heading"><span className="eyebrow">RUN HISTORY</span></div>{runs.length === 0 ? <p className="muted-copy">No durable runs.</p> : runs.map((run) => <button key={run.id} className={`run-list-item ${selectedRun?.id === run.id ? "selected" : ""}`} onClick={() => void selectRun(run)}><strong>{run.id}</strong><span>{run.state} · {run.task}</span></button>)}</div>
-          <RunInspector run={selectedRun} onApprove={() => void updateRun(() => decideRun(project.root, selectedRun!.id, true))} onReject={() => void updateRun(() => decideRun(project.root, selectedRun!.id, false))} onCancel={() => void updateRun(() => cancelRun(project.root, selectedRun!.id))} onResume={() => void updateRun(() => resumeRun(project.root, selectedRun!.id))} />
-          <RunTrace events={runEvents} />
-          <UsageSummary runs={runs} />
-          <SkillAssignmentPanel agents={project.agents} skills={skills} assignments={skillAssignments} selectedAgentId={selectedAgentId} selectedSkillId={selectedSkillId} onSelectSkill={setSelectedSkillId} />
-          <SkillInspector skill={skills.find((skill) => skill.id === selectedSkillId) ?? null} assigned={Boolean(selectedAgentId && selectedSkillId && skillAssignments.some((item) => item.agentId === selectedAgentId && item.skillId === selectedSkillId))} onAssign={(assigned) => void assignSelectedSkill(assigned)} />
-          <div className="skill-import-action"><input aria-label="Local skill folder path" value={skillSourcePath} onChange={(event) => setSkillSourcePath(event.target.value)} placeholder="/private/tmp/skill-folder" /><button className="secondary-button" onClick={() => void inspectSkillSourcePath()}>Preview path</button><button className="quiet-button" onClick={() => void inspectSkillFolder()}>Choose folder</button></div>
+          <details className="flow-section" open><summary>Simulation</summary><SimulationControls state={simulation} dispatch={dispatchSimulation} /><TracePanel state={simulation} onSelect={setSelectedSimulationEvent} /></details>
+          <details className="flow-section"><summary>Learn</summary><LessonPanel selected={selectedLesson} onSelect={setSelectedLesson} /><ContextResetExercise /></details>
+          <details className="flow-section"><summary>Runs <small>{runs.length}</small></summary><RunControls agents={project.agents} selectedAgentId={selectedAgentId} task={runTask} onTask={setRunTask} onStart={() => void startLocalRun()} busy={busy} /><div className="run-list panel-section" aria-label="Durable runs">{runs.length === 0 ? <p className="muted-copy">No durable runs.</p> : runs.map((run) => <button key={run.id} className={`run-list-item ${selectedRun?.id === run.id ? "selected" : ""}`} onClick={() => void selectRun(run)}><strong>{run.id}</strong><span>{run.state} · {run.task}</span></button>)}</div><RunInspector run={selectedRun} onApprove={() => void updateRun(() => decideRun(project.root, selectedRun!.id, true))} onReject={() => void updateRun(() => decideRun(project.root, selectedRun!.id, false))} onCancel={() => void updateRun(() => cancelRun(project.root, selectedRun!.id))} onResume={() => void updateRun(() => resumeRun(project.root, selectedRun!.id))} /><RunTrace events={runEvents} /><UsageSummary runs={runs} /></details>
+          <details className="flow-section"><summary>Skills <small>{skills.length}</small></summary><SkillAssignmentPanel agents={project.agents} skills={skills} assignments={skillAssignments} selectedAgentId={selectedAgentId} selectedSkillId={selectedSkillId} onSelectSkill={setSelectedSkillId} /><SkillInspector skill={skills.find((skill) => skill.id === selectedSkillId) ?? null} assigned={Boolean(selectedAgentId && selectedSkillId && skillAssignments.some((item) => item.agentId === selectedAgentId && item.skillId === selectedSkillId))} onAssign={(assigned) => void assignSelectedSkill(assigned)} /><div className="skill-import-action"><input aria-label="Local skill folder path" value={skillSourcePath} onChange={(event) => setSkillSourcePath(event.target.value)} placeholder="/private/tmp/skill-folder" /><button className="secondary-button" onClick={() => void inspectSkillSourcePath()}>Preview path</button><button className="quiet-button" onClick={() => void inspectSkillFolder()}>Choose folder</button></div></details>
           <RecoveryPanel
             entries={recoveryEntries}
             busy={busy}
@@ -1052,6 +1143,23 @@ function TreeNode(
       </div>
     );
 }
+
+function filterTree(nodes: FileTreeNode[], query: string): FileTreeNode[] {
+  const needle = query.trim().toLowerCase();
+  if (!needle) return nodes;
+  return nodes.flatMap((node) => {
+    const children = node.children ? filterTree(node.children, needle) : undefined;
+    if (node.name.toLowerCase().includes(needle) || (children && children.length > 0)) {
+      return [{ ...node, children }];
+    }
+    return [];
+  });
+}
+
+function PaneDivider({ side, onStart }: { side: "nav" | "flow"; onStart: () => void }) {
+  return <div className={`pane-divider pane-divider-${side}`} role="separator" aria-orientation="vertical" aria-label={`Resize ${side === "nav" ? "navigator" : "flow"}`} onPointerDown={(event) => { event.preventDefault(); onStart(); }}><span /></div>;
+}
+
 function MarkdownEditor(
   { state, onChange, onSave }: {
     state: EditorState;
