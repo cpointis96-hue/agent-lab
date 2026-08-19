@@ -1,26 +1,30 @@
 export type FileConvention = "open" | "agent-lab" | "runtime" | "custom";
+export type FileScope = "agent" | "project" | "skill" | "run";
+export type FileLifetime = "durable" | "runtime";
+export type FileVisibility = "core" | "optional" | "separate";
+export type FileGroup = "agent" | "project" | "skills" | "run" | "optional";
 
 export type FileBuildingBlock = {
-  id: string;
-  filename: string;
-  convention: FileConvention;
-  role: string;
-  useWhen: string;
-  avoidWhen: string;
-  example: string;
+  id: string; filename: string; convention: FileConvention; scope: FileScope; lifetime: FileLifetime; visibility: FileVisibility; group: FileGroup;
+  role: string; useWhen: string; avoidWhen: string; example: string; starter?: string;
 };
 
+const item = (id: string, filename: string, convention: FileConvention, scope: FileScope, lifetime: FileLifetime, visibility: FileVisibility, group: FileGroup, role: string, useWhen: string, avoidWhen: string, example: string, starter?: string): FileBuildingBlock => ({ id, filename, convention, scope, lifetime, visibility, group, role, useWhen, avoidWhen, example, starter });
+
 export const fileCatalog: FileBuildingBlock[] = [
-  { id: "agent", filename: "AGENT.md", convention: "agent-lab", role: "Stable instructions and responsibility for one agent.", useWhen: "An agent has a durable role, boundaries, inputs, or outputs.", avoidWhen: "A one-off task has no persistent agent identity.", example: "## Purpose\n\nResearch and verify a narrow question." },
-  { id: "agents", filename: "AGENTS.md", convention: "open", role: "Instructions shared by coding agents in a project.", useWhen: "Several coding agents need the same repository rules.", avoidWhen: "Only one local agent needs a private instruction.", example: "## Verification\n\nRun the focused test before changing behavior." },
-  { id: "soul", filename: "SOUL.md", convention: "agent-lab", role: "Optional style or persona guidance.", useWhen: "A stable voice is part of the learning example.", avoidWhen: "The role is already clear from AGENT.md.", example: "Use a calm, direct tone." },
-  { id: "tools", filename: "TOOLS.md", convention: "agent-lab", role: "Human-readable notes about available tools.", useWhen: "An agent needs an explicit, documented tool boundary.", avoidWhen: "No tool is actually available or needed.", example: "- filesystem: read project files only" },
-  { id: "memory", filename: "MEMORY.md", convention: "agent-lab", role: "Durable facts worth carrying between tasks.", useWhen: "Facts persist and materially improve future work.", avoidWhen: "The agent is stateless or the facts are cheap to recompute.", example: "- Preferred output format: Markdown" },
-  { id: "status", filename: "STATUS.md", convention: "agent-lab", role: "Human-readable current project state.", useWhen: "A project benefits from a concise handoff snapshot.", avoidWhen: "The state is already obvious from source files.", example: "## Current state\n\nMVP slice validated." },
-  { id: "context", filename: "CONTEXT.md", convention: "custom", role: "Stable background context for a role or project.", useWhen: "Background is large enough to separate from instructions.", avoidWhen: "The context is short and belongs in AGENT.md.", example: "## Domain\n\nThis project is local-first." },
-  { id: "review", filename: "REVIEW.md", convention: "custom", role: "Human-readable review notes or acceptance results.", useWhen: "A review outcome should remain visible on disk.", avoidWhen: "A transient chat message is sufficient.", example: "- filesystem paths checked\n- no silent overwrite" },
-  { id: "task", filename: "task.md", convention: "runtime", role: "A transient task input for a single run.", useWhen: "A runtime needs a durable, inspectable task payload.", avoidWhen: "The task is not running or does not need persistence.", example: "## Request\n\nSummarize the local evidence." },
+  item("agent", "AGENT.md", "agent-lab", "agent", "durable", "core", "agent", "One agent's mission and operating contract.", "The agent has a durable role, inputs, outputs, or boundaries.", "The request is a one-off task with no persistent agent identity.", "Research trustworthy sources and return a short cited brief."),
+  item("agents", "AGENTS.md", "open", "project", "durable", "core", "project", "Shared project rules for coding agents.", "Several agents need the same repository rules.", "The instruction belongs only to one agent.", "Run focused tests before changing behavior."),
+  item("skill", "SKILL.md", "open", "skill", "durable", "separate", "skills", "A reusable procedure an agent can follow.", "The procedure can be reused by several agents.", "It is a one-off instruction for one agent.", "Inspect → verify → summarize with citations."),
+  item("task", "task.md", "runtime", "run", "runtime", "separate", "run", "The request for one run.", "A run needs a durable, inspectable task payload.", "The request is not persisted as a run.", "Review AGENT.md for unclear boundaries."),
+  item("tools", "TOOLS.md", "agent-lab", "agent", "durable", "optional", "optional", "Tools this agent may use and their limits.", "Tool permissions or restrictions need to be explicit.", "The agent has no special tool boundary.", "Read project files. Do not delete or publish anything."),
+  item("context", "CONTEXT.md", "custom", "agent", "durable", "optional", "optional", "Stable background the agent needs to do its job.", "Reusable context is too large for AGENT.md.", "The context is one short sentence that fits in AGENT.md.", "This project is a local-first macOS application."),
+  item("soul", "SOUL.md", "agent-lab", "agent", "durable", "optional", "optional", "Durable tone and working posture.", "Voice or behavior is part of the agent's role.", "AGENT.md already explains how the agent should behave.", "Be direct, cautious, and clearly state uncertainty."),
+  item("memory", "MEMORY.md", "agent-lab", "agent", "durable", "optional", "optional", "Curated facts worth carrying forward.", "A fact should persist and improve future work.", "The information is temporary, sensitive, or cheap to recompute.", "Preferred output format: Markdown with source links."),
+  item("status", "STATUS.md", "agent-lab", "agent", "durable", "optional", "optional", "A human-readable progress snapshot.", "An agent or project needs a persistent handoff summary.", "The state belongs to one execution or is obvious from source files.", "Done: MVP validated. Next: add handoff review."),
+  item("review", "REVIEW.md", "custom", "agent", "durable", "optional", "optional", "Reusable review criteria or saved review notes.", "The agent performs recurring reviews with a stable rubric.", "The review is only a temporary run result.", "Check paths, tests, accessibility, and no silent overwrite."),
 ];
 
-export const conventionLabel = (convention: FileConvention) =>
-  convention === "agent-lab" ? "Agent Lab convention" : convention === "runtime" ? "Runtime artifact" : convention === "open" ? "Open convention" : "Custom";
+export const conventionLabel = (convention: FileConvention) => convention === "agent-lab" ? "Agent Lab convention" : convention === "runtime" ? "Runtime artifact" : convention === "open" ? "Open convention" : "Custom";
+export const scopeLabel = (scope: FileScope) => scope === "agent" ? "One agent" : scope === "project" ? "Project" : scope === "skill" ? "Reusable skill" : "One run";
+export const lifetimeLabel = (lifetime: FileLifetime) => lifetime === "durable" ? "Durable" : "Runtime";
+export const fileGroupLabel = (group: FileGroup) => group === "agent" ? "Agent" : group === "project" ? "Project" : group === "skills" ? "Skills" : group === "run" ? "Run files" : "Optional agent files";

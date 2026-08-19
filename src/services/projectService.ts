@@ -10,6 +10,7 @@ import type { RunEvent, RunSummary } from "../domain/runs";
 export const createProject = (parentPath: string, name: string) => invoke<ProjectSnapshot>("create_project", { parentPath, name });
 export const openProject = (path: string) => invoke<ProjectSnapshot>("open_project", { path });
 export const createAgent = (projectRoot: string, name: string, purpose: string) => invoke<ProjectSnapshot>("create_agent", { projectRoot, name, purpose });
+export const createAgentWithContent = (projectRoot: string, name: string, purpose: string, content: string) => invoke<ProjectSnapshot>("create_agent_with_content", { projectRoot, name, purpose, content });
 export const renameAgent = (projectRoot: string, agentId: string, newName: string) => invoke<ProjectSnapshot>("rename_agent", { projectRoot, agentId, newName });
 export const previewDeleteAgent = (projectRoot: string, agentId: string) => invoke<DeletePreview>("preview_delete_agent", { projectRoot, agentId });
 export const trashAgent = (projectRoot: string, agentId: string) => invoke<RecoveryEntry>("trash_agent", { projectRoot, agentId });

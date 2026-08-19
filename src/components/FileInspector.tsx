@@ -1,12 +1,18 @@
 import type { FileBuildingBlock } from "../domain/fileCatalog";
-import { conventionLabel } from "../domain/fileCatalog";
+import { fileContent, fileExamples } from "../i18n/catalog";
+import { useLanguage } from "../i18n/language";
 
 export function FileInspector({ item, showDetails = true }: { item: FileBuildingBlock | null; showDetails?: boolean }) {
-  if (!item) return <p className="catalog-empty">Choose a building block to understand its tradeoff.</p>;
+  const { resolvedLocale, t } = useLanguage();
+  if (!item) return <p className="catalog-empty">{t("catalog.chooseFile")}</p>;
+  const content = fileContent[resolvedLocale][item.id as keyof typeof fileContent.en];
+  const scope = t(`catalog.scope.${item.scope}` as "catalog.scope.agent");
+  const lifetime = t(`catalog.lifetime.${item.lifetime}` as "catalog.lifetime.durable");
+  const convention = t(`catalog.convention.${item.convention === "agent-lab" ? "agentLab" : item.convention}` as "catalog.convention.agentLab");
   return <article className="file-inspector">
-    <div className="catalog-badge">{conventionLabel(item.convention)}</div>
+    <div className="catalog-badge"><span>{scope}</span><span>{lifetime}</span><span>{convention}</span></div>
     <h3>{item.filename}</h3>
-    <p>{item.role}</p>
-    {showDetails && <><dl><dt>Use when</dt><dd>{item.useWhen}</dd><dt>Avoid when</dt><dd>{item.avoidWhen}</dd></dl><pre>{item.example}</pre></>}
+    <p>{content?.[0] ?? item.role}</p>
+    {showDetails && <><dl><dt>{t("catalog.useWhen")}</dt><dd>{content?.[1] ?? item.useWhen}</dd><dt>{t("catalog.avoidWhen")}</dt><dd>{content?.[2] ?? item.avoidWhen}</dd></dl><div className="file-inspector-example"><span className="eyebrow">{t("app.example")}</span><pre>{fileExamples[resolvedLocale][item.id as keyof typeof fileExamples.en] ?? item.example}</pre></div></>}
   </article>;
 }

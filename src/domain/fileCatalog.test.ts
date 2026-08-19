@@ -3,7 +3,7 @@ import { conventionLabel, fileCatalog } from "./fileCatalog";
 
 describe("file catalog", () => {
   it("gives every building block a reason to use and avoid it", () => {
-    expect(fileCatalog).toHaveLength(9);
+    expect(fileCatalog).toHaveLength(10);
     for (const item of fileCatalog) {
       expect(item.useWhen.length).toBeGreaterThan(10);
       expect(item.avoidWhen.length).toBeGreaterThan(10);

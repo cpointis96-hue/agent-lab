@@ -354,6 +354,25 @@ fn create_agent(
     name: String,
     purpose: String,
 ) -> Result<ProjectSnapshot, String> {
+    create_agent_internal(project_root, name, purpose, None)
+}
+
+#[tauri::command]
+fn create_agent_with_content(
+    project_root: String,
+    name: String,
+    purpose: String,
+    content: String,
+) -> Result<ProjectSnapshot, String> {
+    create_agent_internal(project_root, name, purpose, Some(content))
+}
+
+fn create_agent_internal(
+    project_root: String,
+    name: String,
+    purpose: String,
+    content_override: Option<String>,
+) -> Result<ProjectSnapshot, String> {
     let root = canonical_directory(Path::new(&project_root), "project")?;
     let clean_name = validate_agent_name(&name)?;
     let clean_purpose = purpose.trim();
@@ -372,9 +391,12 @@ fn create_agent(
     fs::create_dir(&agent_directory)
         .map_err(|error| format!("Could not create agent directory: {error}"))?;
 
-    let content = format!(
-        "# {clean_name}\n\n## Purpose\n\n{clean_purpose}\n\n## Responsibilities\n\n- Define the stable responsibility of this agent.\n\n## Inputs\n\n- Describe what this agent needs to begin.\n\n## Outputs\n\n- Describe what this agent produces.\n\n## Boundaries\n\n- Describe what this agent should not do.\n"
-    );
+    let content = content_override.unwrap_or_else(|| format!(
+        "# {clean_name}\n\n## Purpose\n\n{clean_purpose}\n\n## Responsibilities\n\n- Own the distinct responsibility described above and return work that another agent can inspect and use.\n\n## Inputs\n\n- An approved task, the relevant context, constraints, and the files or evidence needed to begin safely.\n\n## Outputs\n\n- A concise result with the work completed, supporting evidence, limitations, and any open handoff questions.\n\n## Boundaries\n\n- Do not expand scope, invent missing facts, modify unrelated files, or perform destructive actions without explicit authorization.\n"
+    ));
+    if content.trim().is_empty() {
+        return Err("Agent content cannot be empty.".to_string());
+    }
     write_new_file(&agent_directory.join("AGENT.md"), &content)?;
 
     let mut persisted = read_or_reconstruct_metadata(&root)?;
@@ -659,6 +681,7 @@ fn run_impl() -> tauri::Result<()> {
             get_ui_mode,
             set_ui_mode,
             create_agent,
+            create_agent_with_content,
             read_project_file,
             write_project_file,
             list_project_files,

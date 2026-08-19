@@ -1,4 +1,5 @@
 import type { TemplateProposal } from "../templates/workflows";
+import { agentMarkdownFor } from "./agentPresets";
 
 export type Proposal = TemplateProposal & {
   objective: string;
@@ -8,7 +9,7 @@ export type Proposal = TemplateProposal & {
 };
 
 const agent = (name: string, purpose: string) => ({ id: `agent:${name.toLowerCase()}`, name, purpose });
-const fileFor = (item: { id: string; name: string; purpose: string }) => ({ path: `agents/${item.name.toLowerCase()}/AGENT.md`, content: `# ${item.name}\n\n## Purpose\n\n${item.purpose}\n` });
+const fileFor = (item: { id: string; name: string; purpose: string }) => ({ path: `agents/${item.name.toLowerCase()}/AGENT.md`, content: agentMarkdownFor(item.name, item.purpose) });
 const edge = (source: string, target: string, label: string) => ({ id: `edge:${source}->${target}:handoff`, source, target, relation: "handoff" as const, label, description: "", payload: "", blocking: true, condition: "When the previous step is complete" });
 
 export const generateLocalProposal = (objective: string): Proposal => {

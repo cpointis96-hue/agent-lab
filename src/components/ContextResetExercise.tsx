@@ -1,8 +1,10 @@
 import { useState } from "react";
+import { useLanguage } from "../i18n/language";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 
 export function ContextResetExercise() {
-  const [context, setContext] = useState("Temporary notes: compare the visible handoff payload.");
-  return <Card className="context-exercise"><CardHeader><span className="eyebrow">CONTEXT RESET</span><CardTitle>Temporary context is not a file</CardTitle></CardHeader><CardContent><p>{context || "Temporary context cleared. Persistent project files remain untouched."}</p><div className="dialog-actions"><Button variant="ghost" onClick={() => setContext("")} disabled={!context}>Reset temporary context</Button><Button variant="secondary" onClick={() => setContext("Temporary notes: compare the visible handoff payload.")}>Restore exercise note</Button></div></CardContent></Card>;
+  const { t } = useLanguage();
+  const [context, setContext] = useState(() => t("context.defaultNote"));
+  return <Card className="context-exercise"><CardHeader><span className="eyebrow">{t("context.reset")}</span><CardTitle>{t("context.title")}</CardTitle></CardHeader><CardContent><p>{context || t("context.cleared")}</p><div className="dialog-actions"><Button variant="ghost" onClick={() => setContext("")} disabled={!context}>{t("context.resetAction")}</Button><Button variant="secondary" onClick={() => setContext(t("context.defaultNote"))}>{t("context.restore")}</Button></div></CardContent></Card>;
 }
