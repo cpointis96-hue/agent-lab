@@ -1,4 +1,5 @@
 import type { DeletePreview } from "../domain/project";
+import { useLanguage } from "../i18n/language";
 
 type DeleteAgentDialogProps = {
   preview: DeletePreview;
@@ -10,13 +11,14 @@ type DeleteAgentDialogProps = {
 export function DeleteAgentDialog(
   { preview, busy, onCancel, onConfirm }: DeleteAgentDialogProps,
 ) {
-  return <div className="modal-backdrop"><section className="agent-dialog delete-agent-dialog" role="dialog" aria-label="Delete agent">
-    <span className="eyebrow">RECOVERABLE DELETE</span>
-    <h2>Delete {preview.agentName}?</h2>
-    <p className="file-path-preview">The folder will move to this project’s recovery area. Nothing is permanently deleted.</p>
-    <PreviewList label="Files" items={preview.files} empty="No files found." />
-    <PreviewList label="Graph edges" items={preview.edges.map((edge) => `${edge.source} —${edge.relation}→ ${edge.target}`)} empty="No graph edges affected." />
-    <div className="dialog-actions"><button type="button" className="quiet-button" onClick={onCancel} disabled={busy}>Cancel</button><button type="button" className="primary-button danger-button" onClick={onConfirm} disabled={busy}>Move to recovery</button></div>
+  const { t } = useLanguage();
+  return <div className="modal-backdrop"><section className="agent-dialog delete-agent-dialog" role="dialog" aria-label={t("dialog.deleteRecovery")}>
+    <span className="eyebrow">{t("dialog.deleteRecovery")}</span>
+    <h2>{t("dialog.moveToRecovery")} : {preview.agentName} ?</h2>
+    <p className="file-path-preview">{t("dialog.noPermanentDelete", { count: preview.files.length, plural: preview.files.length === 1 ? "" : "s" })}</p>
+    <PreviewList label={t("common.files")} items={preview.files} empty={t("common.noFiles")} />
+    <PreviewList label={t("common.edges")} items={preview.edges.map((edge) => `${edge.source} —${edge.relation}→ ${edge.target}`)} empty={t("common.noEdges")} />
+    <div className="dialog-actions"><button type="button" className="quiet-button" onClick={onCancel} disabled={busy}>{t("dialog.cancel")}</button><button type="button" className="primary-button danger-button" onClick={onConfirm} disabled={busy}>{t("dialog.moveToRecovery")}</button></div>
   </section></div>;
 }
 

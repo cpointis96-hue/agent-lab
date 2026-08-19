@@ -7,7 +7,7 @@ describe("file catalog", () => {
     for (const item of fileCatalog) {
       expect(item.useWhen.length).toBeGreaterThan(10);
       expect(item.avoidWhen.length).toBeGreaterThan(10);
-      expect(["Open format", "Agent Lab pattern", "Runtime file", "Project pattern"]).toContain(conventionLabel(item.convention));
+      expect(["Open convention", "Agent Lab convention", "Runtime artifact", "Custom"]).toContain(conventionLabel(item.convention));
       expect(lifetimeLabel(item.lifetime)).toMatch(/Durable|Runtime/);
     }
     expect(fileCatalog.find((item) => item.filename === "AGENTS.md")?.convention).toBe("open");

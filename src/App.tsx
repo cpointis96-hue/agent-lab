@@ -32,7 +32,7 @@ import { DeleteAgentDialog } from "./components/DeleteAgentDialog";
 import { RecoveryPanel } from "./components/RecoveryPanel";
 import { RenameAgentDialog } from "./components/RenameAgentDialog";
 import {
-  createAgent,
+  createAgentWithContent,
   createProject,
   createProjectFile,
   getUiMode,
@@ -88,11 +88,14 @@ import { SkillImportPreview } from "./components/SkillImportPreview";
 import type { SkillImportPreview as SkillImportPreviewData } from "./services/projectService";
 import { proposalForTemplate, type WorkflowTemplate } from "./templates/workflows";
 import { Button } from "./components/ui/button";
-import { Bot, ChevronDown, ChevronRight, Eye, FilePlus2, FolderOpen, MoreHorizontal, PanelLeft, PanelRight, Plus, Save, Search, Sparkles, Trash2, Workflow, X } from "lucide-react";
+import { Bot, Eye, FilePlus2, FolderOpen, MoreHorizontal, PanelLeft, PanelRight, Plus, Save, Search, Sparkles, Trash2, Workflow, X } from "lucide-react";
 import type { RunEvent, RunSummary } from "./domain/runs";
 import { RunControls, RunInspector } from "./components/RunControls";
 import { RunTrace } from "./components/RunTrace";
 import { UsageSummary } from "./components/UsageSummary";
+import { useLanguage } from "./i18n/language";
+import { LanguageSettings } from "./components/LanguageSettings";
+import { AGENT_PRESETS, DEFAULT_AGENT_PRESET, agentMarkdown } from "./domain/agentPresets";
 
 type Notice = { tone: "error" | "success"; message: string } | null;
 const defaultPurpose = "";
@@ -108,6 +111,7 @@ const errorMessage = (error: unknown) =>
   })();
 
 export function App() {
+  const { t } = useLanguage();
   const [project, setProject] = useState<ProjectSnapshot | null>(null);
   const [files, setFiles] = useState<ProjectFile[]>([]);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
@@ -116,8 +120,11 @@ export function App() {
   const [notice, setNotice] = useState<Notice>(null);
   const [busy, setBusy] = useState(false);
   const [agentDialogOpen, setAgentDialogOpen] = useState(false);
-  const [agentName, setAgentName] = useState("Researcher");
-  const [agentPurpose, setAgentPurpose] = useState(defaultPurpose);
+  const [agentPresetId, setAgentPresetId] = useState(DEFAULT_AGENT_PRESET.id);
+  const [agentName, setAgentName] = useState(DEFAULT_AGENT_PRESET.name);
+  const [agentPurpose, setAgentPurpose] = useState(DEFAULT_AGENT_PRESET.purpose);
+  const [agentAdvancedOpen, setAgentAdvancedOpen] = useState(false);
+  const [agentMarkdownDraft, setAgentMarkdownDraft] = useState(() => agentMarkdown(DEFAULT_AGENT_PRESET));
   const [addFileDialogOpen, setAddFileDialogOpen] = useState(false);
   const [addFileParentPath, setAddFileParentPath] = useState("");
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
@@ -150,15 +157,19 @@ export function App() {
   const [runs, setRuns] = useState<RunSummary[]>([]);
   const [selectedRun, setSelectedRun] = useState<RunSummary | null>(null);
   const [runEvents, setRunEvents] = useState<RunEvent[]>([]);
-  const [runTask, setRunTask] = useState("Review the selected agent's local task.");
+  const [runTask, setRunTask] = useState("");
   const [navigatorCollapsed, setNavigatorCollapsed] = useState(false);
   const [flowCollapsed, setFlowCollapsed] = useState(false);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
-  const [rawFilesOpen, setRawFilesOpen] = useState(false);
+  const [rawFilesOpen, setRawFilesOpen] = useState(true);
   const [fileFilter, setFileFilter] = useState("");
   const [navWidth, setNavWidth] = useState(() => Number(localStorage.getItem("agent-lab.nav-width")) || 248);
   const [flowWidth, setFlowWidth] = useState(() => Number(localStorage.getItem("agent-lab.flow-width")) || 360);
   const [draggingDivider, setDraggingDivider] = useState<"nav" | "flow" | null>(null);
+  const [draggingNavSection, setDraggingNavSection] = useState<"agents" | "files" | null>(null);
+  const [navAgentsHeight, setNavAgentsHeight] = useState(() => Number(localStorage.getItem("agent-lab.nav-agents-height")) || 165);
+  const [navFilesHeight, setNavFilesHeight] = useState(() => Number(localStorage.getItem("agent-lab.nav-files-height")) || 300);
+  const navigatorSectionsRef = useRef<HTMLDivElement>(null);
   const selectedAgent = useMemo(
     () => project?.agents.find((agent) => agent.id === selectedAgentId) ?? null,
     [project, selectedAgentId],
@@ -191,6 +202,29 @@ export function App() {
       window.removeEventListener("pointerup", stop);
     };
   }, [draggingDivider]);
+  useEffect(() => {
+    if (!draggingNavSection) return;
+    const move = (event: PointerEvent) => {
+      const bounds = navigatorSectionsRef.current?.getBoundingClientRect();
+      if (!bounds) return;
+      if (draggingNavSection === "agents") {
+        const next = Math.min(360, Math.max(120, event.clientY - bounds.top));
+        setNavAgentsHeight(next);
+        localStorage.setItem("agent-lab.nav-agents-height", String(next));
+      } else {
+        const next = Math.min(440, Math.max(150, event.clientY - bounds.top - navAgentsHeight - 5));
+        setNavFilesHeight(next);
+        localStorage.setItem("agent-lab.nav-files-height", String(next));
+      }
+    };
+    const stop = () => setDraggingNavSection(null);
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", stop, { once: true });
+    return () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", stop);
+    };
+  }, [draggingNavSection, navAgentsHeight]);
   useEffect(() => {
     if (project) dispatchSimulation({ type: "load", project });
   }, [project?.root, project?.graph.edges.length, project?.graph.nodes.length]);
@@ -298,7 +332,11 @@ export function App() {
     setBusy(true);
     setNotice(null);
     try {
-      const next = await createAgent(project.root, name, purpose);
+      const preset = AGENT_PRESETS.find((item) => item.id === agentPresetId) ?? DEFAULT_AGENT_PRESET;
+      const content = agentAdvancedOpen
+        ? agentMarkdownDraft
+        : agentMarkdown({ ...preset, purpose }, name);
+      const next = await createAgentWithContent(project.root, name, purpose, content);
       const created = next.agents.find((agent) => agent.name === name) ?? next.agents[next.agents.length - 1];
       setAgentDialogOpen(false);
       await loadProject(next, `${name} created on disk.`, created?.id);
@@ -419,7 +457,7 @@ export function App() {
         onCreate={(parent, name) =>
           void run(
             () => createProject(parent, name),
-            "Project created on disk.",
+            t("app.projectCreated"),
           )}
         onOpen={(path) => void run(() => openProject(path))}
         importSummary={importSummary}
@@ -439,12 +477,12 @@ export function App() {
     try {
       if (template.agents.length === 0) {
         setTemplatesOpen(false);
-        setNotice({ tone: "success", message: "Blank template selected; no files changed." });
+        setNotice({ tone: "success", message: t("app.blankTemplate") });
         return;
       }
       const next = await applyTemplate(project.root, proposalForTemplate(template));
       setTemplatesOpen(false);
-      await loadProject(next, `${template.name} applied on disk.`);
+      await loadProject(next, t("app.projectApplied", { name: template.name }));
     } catch (error) { setNotice({ tone: "error", message: errorMessage(error) }); }
     finally { setBusy(false); }
   };
@@ -462,7 +500,7 @@ export function App() {
       };
       const next = await applyTemplate(project.root, nextProposal);
       setAssistantOpen(false);
-      await loadProject(next, nextProposal.agents.length ? "Assistant proposal applied on disk." : "Proposal matched the existing project; nothing new was written.");
+      await loadProject(next, nextProposal.agents.length ? t("app.proposalApplied") : t("app.proposalNoChanges"));
     } catch (error) { setNotice({ tone: "error", message: errorMessage(error) }); }
     finally { setBusy(false); }
   };
@@ -472,7 +510,7 @@ export function App() {
     try { setSkillImport({ ...(await inspectSkillImport(selected, project.root)), sourcePath: selected }); }
     catch (error) {
       const message = errorMessage(error);
-      setNotice({ tone: "error", message: message.includes("Could not inspect skill source:") ? "Skill folder unavailable. Choose an existing folder containing SKILL.md." : message });
+      setNotice({ tone: "error", message: message.includes("Could not inspect skill source:") ? t("app.skillFolderUnavailable") : message });
     }
   };
   const inspectSkillSourcePath = async () => {
@@ -480,7 +518,7 @@ export function App() {
     try { setSkillImport({ ...(await inspectSkillImport(skillSourcePath.trim(), project.root)), sourcePath: skillSourcePath.trim() }); }
     catch (error) {
       const message = errorMessage(error);
-      setNotice({ tone: "error", message: message.includes("Could not inspect skill source:") ? "Skill folder unavailable. Choose an existing folder containing SKILL.md." : message });
+      setNotice({ tone: "error", message: message.includes("Could not inspect skill source:") ? t("app.skillFolderUnavailable") : message });
     }
   };
   const assignSelectedSkill = async (assigned: boolean) => {
@@ -498,7 +536,7 @@ export function App() {
     try {
       const created = await startRun(project.root, selectedAgentId, runTask);
       await refreshRuns(project.root, created.id);
-      setNotice({ tone: "success", message: `${created.id} started and is waiting for approval.` });
+      setNotice({ tone: "success", message: t("app.runStarted", { id: created.id }) });
     } catch (error) { setNotice({ tone: "error", message: errorMessage(error) }); }
     finally { setBusy(false); }
   };
@@ -510,13 +548,14 @@ export function App() {
     finally { setBusy(false); }
   };
   const paletteActions: PaletteAction[] = [
-    { id: "assistant", label: "Open AI Design Assistant", run: () => setAssistantOpen(true) },
-    { id: "templates", label: "Open workflow templates", run: () => setTemplatesOpen(true) },
-    { id: "new-agent", label: "New Agent", run: () => setAgentDialogOpen(true) },
-    { id: "add-file", label: "Add File", run: () => openAddFileDialog() },
-    { id: "reveal", label: "Reveal project in Finder", run: () => void revealInFinder(project.root) },
-    { id: "learn", label: "Switch Learn/Build", hint: `Current: ${mode}`, run: () => { const next = mode === "learn" ? "build" : "learn"; setMode(next); void setUiMode(project.root, next); } },
+    { id: "assistant", label: t("app.aiAssistant"), run: () => setAssistantOpen(true) },
+    { id: "templates", label: t("app.templates"), run: () => setTemplatesOpen(true) },
+    { id: "new-agent", label: t("app.createAgent"), run: () => setAgentDialogOpen(true) },
+    { id: "add-file", label: t("app.addFile"), run: () => openAddFileDialog() },
+    { id: "reveal", label: t("app.revealProject"), run: () => void revealInFinder(project.root) },
+    { id: "learn", label: `${t("mode.learn")}/${t("mode.build")}`, hint: `${t("mode.label")}: ${mode === "learn" ? t("mode.learn") : t("mode.build")}`, run: () => { const next = mode === "learn" ? "build" : "learn"; setMode(next); void setUiMode(project.root, next); } },
   ];
+  const runStateLabel = (state: RunSummary["state"]) => t(`app.runState.${state}` as "app.runState.idle");
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -525,8 +564,8 @@ export function App() {
           <Button
             variant="ghost"
             size="icon"
-            title="Close project"
-            aria-label="Close project"
+            title={t("app.closeProject")}
+            aria-label={t("app.closeProject")}
             onClick={() => {
               setProject(null);
               setEditor(null);
@@ -536,31 +575,32 @@ export function App() {
           <Button
             variant="ghost"
             size="icon"
-            title={navigatorCollapsed ? "Show navigator" : "Hide navigator"}
-            aria-label={navigatorCollapsed ? "Show navigator" : "Hide navigator"}
+            title={navigatorCollapsed ? t("app.showNavigator") : t("app.hideNavigator")}
+            aria-label={navigatorCollapsed ? t("app.showNavigator") : t("app.hideNavigator")}
             onClick={() => setNavigatorCollapsed((value) => !value)}
           ><PanelLeft /></Button>
           <Button
             variant="ghost"
             size="icon"
-            title={flowCollapsed ? "Show flow" : "Hide flow"}
-            aria-label={flowCollapsed ? "Show flow" : "Hide flow"}
+            title={flowCollapsed ? t("app.showFlow") : t("app.hideFlow")}
+            aria-label={flowCollapsed ? t("app.showFlow") : t("app.hideFlow")}
             onClick={() => setFlowCollapsed((value) => !value)}
           ><PanelRight /></Button>
           <div className="toolbar-menu-wrap">
             <Button
               variant="ghost"
               size="icon"
-              title="More project actions"
-              aria-label="More project actions"
+              title={t("app.moreActions")}
+              aria-label={t("app.moreActions")}
               aria-expanded={moreMenuOpen}
               onClick={() => setMoreMenuOpen((value) => !value)}
             ><MoreHorizontal /></Button>
             {moreMenuOpen && (
               <div className="toolbar-menu" role="menu">
-                <button role="menuitem" onClick={() => { setMoreMenuOpen(false); setTemplatesOpen(true); }}><Workflow />Templates</button>
-                <button role="menuitem" onClick={() => { setMoreMenuOpen(false); setAssistantOpen(true); }}><Sparkles />AI Assistant</button>
-                <button role="menuitem" onClick={() => { setMoreMenuOpen(false); setPaletteOpen(true); }}><Search />Command palette</button>
+                <button role="menuitem" onClick={() => { setMoreMenuOpen(false); setTemplatesOpen(true); }}><Workflow />{t("app.templates")}</button>
+                <button role="menuitem" onClick={() => { setMoreMenuOpen(false); setAssistantOpen(true); }}><Sparkles />{t("app.aiAssistant")}</button>
+                <button role="menuitem" onClick={() => { setMoreMenuOpen(false); setPaletteOpen(true); }}><Search />{t("app.commandPalette")}</button>
+                <LanguageSettings />
               </div>
             )}
           </div>
@@ -571,31 +611,34 @@ export function App() {
       <main className={`workspace ${draggingDivider ? "is-resizing" : ""}`} style={workspaceStyle}>
         <aside className={`navigator panel ${navigatorCollapsed ? "pane-collapsed" : ""}`}>
           <div className="panel-header">
-            <span className="eyebrow">PROJECT</span>
+            <span className="eyebrow">{t("app.projectFiles")}</span>
             <div>
               <Button
                 variant="ghost"
                 size="icon"
-                title="Reveal project in Finder"
-                aria-label="Reveal project in Finder"
+                title={t("app.revealProject")}
+                aria-label={t("app.revealProject")}
                 onClick={() => void revealInFinder(project.root)}
               ><FolderOpen /></Button>
               <Button
                 variant="ghost"
                 size="icon"
-                title="Add file"
-                aria-label="Add file"
+                title={t("app.addFile")}
+                aria-label={t("app.addFile")}
                 onClick={() => openAddFileDialog()}
                 disabled={busy}
               ><FilePlus2 /></Button>
               <Button
                 variant="ghost"
                 size="icon"
-                title="Create agent"
-                aria-label="Create agent"
+                title={t("app.createAgent")}
+                aria-label={t("app.createAgent")}
                 onClick={() => {
-                  setAgentName("Researcher");
-                  setAgentPurpose("");
+                  setAgentPresetId(DEFAULT_AGENT_PRESET.id);
+                  setAgentName(DEFAULT_AGENT_PRESET.name);
+                  setAgentPurpose(DEFAULT_AGENT_PRESET.purpose);
+                  setAgentAdvancedOpen(false);
+                  setAgentMarkdownDraft(agentMarkdown(DEFAULT_AGENT_PRESET));
                   setAgentDialogOpen(true);
                 }}
                 disabled={busy}
@@ -604,45 +647,55 @@ export function App() {
           </div>
           <div className="navigator-search">
             <Search aria-hidden="true" />
-            <input value={fileFilter} onChange={(event) => setFileFilter(event.target.value)} placeholder="Filter project" aria-label="Filter project" />
+            <input value={fileFilter} onChange={(event) => setFileFilter(event.target.value)} placeholder={t("app.filterProject")} aria-label={t("app.filterProject")} />
             <kbd>⌘F</kbd>
           </div>
-          <section className="navigator-group">
-            <div className="navigator-group-heading"><span>AGENTS</span><small>{project.agents.length}</small></div>
-            {project.agents.length === 0
-              ? <p className="navigator-empty">No agents yet. Use <strong>+</strong> to create one.</p>
-              : <div className="agent-list" aria-label="Agents">{project.agents.map((agent) => <div className="agent-list-row" key={agent.id}><button className={`agent-list-item ${selectedAgentId === agent.id ? "selected" : ""}`} onClick={() => void selectAgent(agent)}><Bot /><span><strong>{agent.name}</strong><small>{agent.purpose}</small></span></button><Button variant="ghost" size="icon" className="agent-list-trash" title={`Move ${agent.name} to recovery`} aria-label={`Move ${agent.name} to recovery`} onClick={() => void requestDeleteAgent(agent.id)} disabled={busy}><Trash2 /></Button></div>)}</div>}
-          </section>
-          <section className="navigator-group navigator-group-files">
-            <button className="navigator-disclosure" onClick={() => setRawFilesOpen((value) => !value)} aria-expanded={rawFilesOpen}><span><ChevronRight className={rawFilesOpen ? "rotated" : ""} />PROJECT FILES</span><small>{files.length}</small></button>
-          </section>
-          {rawFilesOpen && <div className="tree" aria-label="Project filesystem">
-            {filteredTree.map((node) => (
-              <TreeNode
-                key={node.path}
-                node={node}
-                agents={project.agents}
-                selectedAgentId={selectedAgentId}
-                selectedFile={selectedFile}
-                onOpen={(path) => void openFile(path)}
-                onSelectAgent={(agent) => void selectAgent(agent)}
-                onAddFile={(agent) => openAddFileDialog(agent.path)}
-                onReveal={(path) => void revealInFinder(project.root, path)}
-                onRequestDelete={(agentId) => void requestDeleteAgent(agentId)}
-              />
-            ))}
-          </div>}
-          <FileCatalog mode={mode} />
+          <div
+            className={`navigator-sections ${draggingNavSection ? "is-resizing-nav" : ""}`}
+            ref={navigatorSectionsRef}
+            style={{ gridTemplateRows: `${navAgentsHeight}px 5px ${navFilesHeight}px 5px minmax(150px, 1fr)` }}
+          >
+            <section className="navigator-section navigator-section-agents">
+              <div className="navigator-group-heading"><span>{t("app.agents")}</span><small>{project.agents.length}</small></div>
+              {project.agents.length === 0
+                ? <p className="navigator-empty">{t("app.noAgents")}</p>
+                : <div className="agent-list" aria-label={t("app.agents")}>{project.agents.map((agent) => <div className="agent-list-row" key={agent.id}><button className={`agent-list-item ${selectedAgentId === agent.id ? "selected" : ""}`} onClick={() => void selectAgent(agent)}><span><strong>{agent.name}</strong><small>{agent.purpose}</small></span></button><Button variant="ghost" size="icon" className="agent-list-trash" title={`${t("app.moveAgent")}: ${agent.name}`} aria-label={`${t("app.moveAgent")}: ${agent.name}`} onClick={() => void requestDeleteAgent(agent.id)} disabled={busy}><Trash2 /></Button></div>)}</div>}
+            </section>
+            <NavSectionDivider label={t("app.agents")} onStart={() => setDraggingNavSection("agents")} />
+            <section className="navigator-section navigator-section-files">
+              <button className="navigator-disclosure" onClick={() => setRawFilesOpen((value) => !value)} aria-expanded={rawFilesOpen}><span><span className="navigator-disclosure-mark" aria-hidden="true">{rawFilesOpen ? "−" : "+"}</span>{t("app.projectFiles")}</span><small>{files.length}</small></button>
+              {rawFilesOpen && <div className="tree" aria-label={t("app.projectFiles")}>
+                {filteredTree.map((node) => (
+                  <TreeNode
+                    key={node.path}
+                    node={node}
+                    agents={project.agents}
+                    selectedAgentId={selectedAgentId}
+                    selectedFile={selectedFile}
+                    onOpen={(path) => void openFile(path)}
+                    onSelectAgent={(agent) => void selectAgent(agent)}
+                    onAddFile={(agent) => openAddFileDialog(agent.path)}
+                    onReveal={(path) => void revealInFinder(project.root, path)}
+                    onRequestDelete={(agentId) => void requestDeleteAgent(agentId)}
+                  />
+                ))}
+              </div>}
+            </section>
+            <NavSectionDivider label={t("app.projectFiles")} onStart={() => setDraggingNavSection("files")} />
+            <section className="navigator-section navigator-section-guide">
+              <FileCatalog mode={mode} />
+            </section>
+          </div>
           <div className="navigator-footer">
             <div className="navigator-footer-heading">
-              <span className="eyebrow">ROOT</span>
+              <span className="eyebrow">{t("app.root")}</span>
               {project.agents.length > 0 && (
                 <Button
                   variant="ghost"
                   size="icon"
                   className="danger-icon"
-                  title="Move all agents to recovery"
-                  aria-label="Move all agents to recovery"
+                  title={t("app.moveAllToRecovery")}
+                  aria-label={t("app.moveAllToRecovery")}
                   onClick={() => setDeleteAllAgentsOpen(true)}
                   disabled={busy}
                 ><Trash2 /></Button>
@@ -655,20 +708,20 @@ export function App() {
         <section className="inspector panel">
           <div className="panel-header editor-header">
             <div>
-              <strong>{selectedFile ?? "Select a file"}</strong>
+              <strong>{selectedFile ?? t("app.selectFile")}</strong>
             </div>
             <div className="editor-toolbar">
               {editor && (
                 <span className={`save-state ${editor.status}`}>
                   {editor.status === "dirty"
-                    ? "Unsaved"
+                    ? t("app.unsaved")
                     : editor.status === "saving"
-                    ? "Saving…"
+                    ? t("app.saving")
                     : editor.status === "conflict"
-                    ? "Conflict"
+                    ? t("app.conflict")
                     : editor.status === "error"
-                    ? "Error"
-                    : "Saved"}
+                    ? t("app.error")
+                    : t("app.saved")}
                 </span>
               )}
               {editor && (
@@ -676,8 +729,8 @@ export function App() {
                   variant="ghost"
                   size="icon"
                   className="save-icon-button"
-                  aria-label="Save file"
-                  title="Save file (⌘S)"
+                  aria-label={t("app.saveFile")}
+                  title={`${t("app.saveFile")} (⌘S)`}
                   disabled={busy || editor.status !== "dirty"}
                   onClick={() => void save()}
                 ><Save /></Button>
@@ -699,39 +752,37 @@ export function App() {
             )
             : (
               <div className="empty-state">
-                <h2>Choose a Markdown file.</h2>
-                <p>
-                  The navigator reflects the real files inside this project.
-                </p>
+                <h2>{t("app.chooseMarkdown")}</h2>
+                <p>{t("app.navigatorDescription")}</p>
               </div>
             )}
         </section>
         {!flowCollapsed && <PaneDivider side="flow" onStart={() => setDraggingDivider("flow")} />}
         <section className={`flow panel ${flowCollapsed ? "pane-collapsed" : ""}`}>
           <div className="panel-header">
-            <span className="eyebrow">FLOW</span>
+            <span className="eyebrow">{t("app.flow")}</span>
             <div className="panel-tools">
               <span className="flow-meta">
                 {project.graph.nodes.length}{" "}
-                node{project.graph.nodes.length === 1 ? "" : "s"}
+                {project.graph.nodes.length === 1 ? t("app.node") : t("app.nodes")}
               </span>
               <Button
                 variant="ghost"
                 size="icon"
-                title="Rename selected agent"
-                aria-label="Rename selected agent"
+                title={t("app.renameAgent")}
+                aria-label={t("app.renameAgent")}
                 onClick={() => setRenameDialogOpen(true)}
                 disabled={busy || !selectedAgent}
               ><span className="toolbar-letter">Aa</span></Button>
               <Button
                 variant="ghost"
                 size="icon"
-                title="Move selected agent to recovery"
-                aria-label="Move selected agent to recovery"
+                title={t("app.moveAgent")}
+                aria-label={t("app.moveAgent")}
                 onClick={() => selectedAgent && void requestDeleteAgent(selectedAgent.id)}
                 disabled={busy || !selectedAgent}
               ><Trash2 /></Button>
-              <Button variant="ghost" size="icon" title="Connect agents" aria-label="Connect agents" onClick={() => {
+              <Button variant="ghost" size="icon" title={t("app.connectAgents")} aria-label={t("app.connectAgents")} onClick={() => {
                 const source = selectedAgentId ?? project.graph.nodes[0]?.id;
                 const target = project.graph.nodes.find((node) => node.id !== source)?.id;
                 if (source && target) setEdgeDraft({ ...defaultEdge(source, target), id: "new-edge" });
@@ -743,12 +794,12 @@ export function App() {
               const source = project.graph.nodes.find((node) => node.id === edge.source);
               const target = project.graph.nodes.find((node) => node.id === edge.target);
               if (!source || !target) return null;
-              return <button key={edge.id} className="flow-edge" style={{ left: (source.position.x + target.position.x) / 2 + 58, top: (source.position.y + target.position.y) / 2 + 12 }} onClick={() => setEdgeDraft(edge)} title="Inspect connection">{edge.label || edge.relation}</button>;
+              return <button key={edge.id} className="flow-edge" style={{ left: (source.position.x + target.position.x) / 2 + 58, top: (source.position.y + target.position.y) / 2 + 12 }} onClick={() => setEdgeDraft(edge)} title={t("app.inspectConnection")}>{edge.label || edge.relation}</button>;
             })}
             {project.graph.nodes.length === 0
               ? (
                 <div className="flow-empty">
-                  Your first agent will appear here.
+                  {t("app.noNodes")}
                 </div>
               )
               : project.graph.nodes.map((node) => (
@@ -782,11 +833,11 @@ export function App() {
               ))}
             {simulation.events[simulation.cursor] && <div className={`simulation-packet ${simulation.playing ? "moving" : ""}`} role="status" aria-live="polite">● {simulation.events[simulation.cursor].payload}</div>}
           </div>
-          <div className="flow-footer">Drag a node to save its layout. {project.graph.edges.length > 0 && <span className="edge-summary">{project.graph.edges.length} relation{project.graph.edges.length === 1 ? "" : "s"}</span>}</div>
-          <details className="flow-section" open><summary>Simulation</summary><SimulationControls state={simulation} dispatch={dispatchSimulation} /><TracePanel state={simulation} onSelect={setSelectedSimulationEvent} /></details>
-          <details className="flow-section"><summary>Learn</summary><LessonPanel selected={selectedLesson} onSelect={setSelectedLesson} /><ContextResetExercise /></details>
-          <details className="flow-section"><summary>Runs <small>{runs.length}</small></summary><RunControls agents={project.agents} selectedAgentId={selectedAgentId} task={runTask} onTask={setRunTask} onStart={() => void startLocalRun()} busy={busy} /><div className="run-list panel-section" aria-label="Durable runs">{runs.length === 0 ? <p className="muted-copy">No durable runs.</p> : runs.map((run) => <button key={run.id} className={`run-list-item ${selectedRun?.id === run.id ? "selected" : ""}`} onClick={() => void selectRun(run)}><strong>{run.id}</strong><span>{run.state} · {run.task}</span></button>)}</div><RunInspector run={selectedRun} onApprove={() => void updateRun(() => decideRun(project.root, selectedRun!.id, true))} onReject={() => void updateRun(() => decideRun(project.root, selectedRun!.id, false))} onCancel={() => void updateRun(() => cancelRun(project.root, selectedRun!.id))} onResume={() => void updateRun(() => resumeRun(project.root, selectedRun!.id))} /><RunTrace events={runEvents} /><UsageSummary runs={runs} /></details>
-          <details className="flow-section"><summary>Skills <small>{skills.length}</small></summary><SkillAssignmentPanel agents={project.agents} skills={skills} assignments={skillAssignments} selectedAgentId={selectedAgentId} selectedSkillId={selectedSkillId} onSelectSkill={setSelectedSkillId} /><SkillInspector skill={skills.find((skill) => skill.id === selectedSkillId) ?? null} assigned={Boolean(selectedAgentId && selectedSkillId && skillAssignments.some((item) => item.agentId === selectedAgentId && item.skillId === selectedSkillId))} onAssign={(assigned) => void assignSelectedSkill(assigned)} /><div className="skill-import-action"><input aria-label="Local skill folder path" value={skillSourcePath} onChange={(event) => setSkillSourcePath(event.target.value)} placeholder="/private/tmp/skill-folder" /><button className="secondary-button" onClick={() => void inspectSkillSourcePath()}>Preview path</button><button className="quiet-button" onClick={() => void inspectSkillFolder()}>Choose folder</button></div></details>
+          <div className="flow-footer">{t("app.dragNode")} {project.graph.edges.length > 0 && <span className="edge-summary">{project.graph.edges.length} {project.graph.edges.length === 1 ? t("app.relation") : t("app.relations")}</span>}</div>
+          <details className="flow-section" open><summary>{t("simulation.label")}</summary><SimulationControls state={simulation} dispatch={dispatchSimulation} /><TracePanel state={simulation} onSelect={setSelectedSimulationEvent} /></details>
+          <details className="flow-section"><summary>{t("app.learn")}</summary><LessonPanel selected={selectedLesson} onSelect={setSelectedLesson} /><ContextResetExercise /></details>
+          <details className="flow-section"><summary>{t("app.runs")} <small>{runs.length}</small></summary><RunControls agents={project.agents} selectedAgentId={selectedAgentId} task={runTask} onTask={setRunTask} onStart={() => void startLocalRun()} busy={busy} /><div className="run-list panel-section" aria-label={t("app.runs")}><div className="run-history-copy"><strong>{t("run.historyTitle")}</strong><span>{t("run.historyDescription")}</span></div>{runs.length === 0 ? <p className="muted-copy">{t("app.noDurableRuns")}</p> : runs.map((run) => <button key={run.id} className={`run-list-item ${selectedRun?.id === run.id ? "selected" : ""}`} onClick={() => void selectRun(run)}><strong>{run.id}</strong><span>{t(`app.runState.${run.state}` as "app.runState.idle")} · {run.task}</span></button>)}</div><RunInspector run={selectedRun} onApprove={() => void updateRun(() => decideRun(project.root, selectedRun!.id, true))} onReject={() => void updateRun(() => decideRun(project.root, selectedRun!.id, false))} onCancel={() => void updateRun(() => cancelRun(project.root, selectedRun!.id))} onResume={() => void updateRun(() => resumeRun(project.root, selectedRun!.id))} /><RunTrace events={runEvents} /><UsageSummary runs={runs} /></details>
+          <details className="flow-section"><summary>{t("app.skills")} <small>{skills.length}</small></summary><SkillAssignmentPanel agents={project.agents} skills={skills} assignments={skillAssignments} selectedAgentId={selectedAgentId} selectedSkillId={selectedSkillId} onSelectSkill={setSelectedSkillId} /><SkillInspector skill={skills.find((skill) => skill.id === selectedSkillId) ?? null} assigned={Boolean(selectedAgentId && selectedSkillId && skillAssignments.some((item) => item.agentId === selectedAgentId && item.skillId === selectedSkillId))} onAssign={(assigned) => void assignSelectedSkill(assigned)} /><div className="skill-import-action"><input aria-label={t("app.localSkillPath")} value={skillSourcePath} onChange={(event) => setSkillSourcePath(event.target.value)} placeholder="/private/tmp/skill-folder" /><button className="secondary-button" onClick={() => void inspectSkillSourcePath()}>{t("app.previewPath")}</button><button className="quiet-button" onClick={() => void inspectSkillFolder()}>{t("app.chooseFolder")}</button></div></details>
           <RecoveryPanel
             entries={recoveryEntries}
             busy={busy}
@@ -813,11 +864,11 @@ export function App() {
           <div
             className="conflict-dialog"
             role="dialog"
-            aria-label="File changed externally"
+            aria-label={t("app.fileChangedExternally")}
           >
-            <span className="eyebrow">CONFLICT</span>
-            <h2>File changed externally</h2>
-            <p>{selectedFile} changed on disk while you had unsaved edits.</p>
+            <span className="eyebrow">{t("app.conflictEyebrow")}</span>
+            <h2>{t("dialog.fileChanged")}</h2>
+            <p>{t("dialog.fileChangedDescription", { file: selectedFile ?? "" })}</p>
             {compare && (
               <div className="compare-grid">
                 <pre>{conflict.mine}</pre>
@@ -829,7 +880,7 @@ export function App() {
                 className="quiet-button"
                 onClick={() => setCompare((value) => !value)}
               >
-                {compare ? "Hide compare" : "Compare"}
+                {compare ? t("dialog.hideCompare") : t("dialog.compare")}
               </button>
               <button
                 className="quiet-button"
@@ -838,7 +889,7 @@ export function App() {
                   setConflict(null);
                 }}
               >
-                Reload
+                {t("dialog.reload")}
               </button>
               <button
                 className="primary-button"
@@ -862,7 +913,7 @@ export function App() {
                   }
                 }}
               >
-                Keep mine
+                {t("dialog.keepMine")}
               </button>
             </div>
           </div>
@@ -877,38 +928,71 @@ export function App() {
               void createNewAgent();
             }}
           >
-            <span className="eyebrow">NEW AGENT</span>
-            <h2>Create an agent</h2>
+            <span className="eyebrow">{t("app.newAgent")}</span>
+            <h2>{t("dialog.createAgent")}</h2>
             <label>
-              Name<input
+              {t("dialog.starterRole")}<select value={agentPresetId} onChange={(event) => {
+                const preset = AGENT_PRESETS.find((item) => item.id === event.target.value) ?? DEFAULT_AGENT_PRESET;
+                setAgentPresetId(preset.id);
+                setAgentName(preset.name);
+                setAgentPurpose(preset.purpose);
+                setAgentMarkdownDraft(agentMarkdown(preset));
+              }}>
+                {AGENT_PRESETS.map((preset) => <option key={preset.id} value={preset.id}>{preset.name}</option>)}
+              </select>
+            </label>
+            <label>
+              {t("dialog.name")}<input
                 autoFocus
                 value={agentName}
                 onChange={(event) => setAgentName(event.target.value)}
               />
             </label>
             <label>
-              Purpose<textarea
+              {t("dialog.purpose")}<textarea
                 value={agentPurpose}
                 onChange={(event) => setAgentPurpose(event.target.value)}
-                placeholder="Research official sources and return a short cited brief."
+                placeholder={t("app.examplePurpose")}
                 rows={3}
               />
-              <small className="field-hint">Example: Research official sources about a topic and return a short cited brief.</small>
+              <small className="field-hint">{t("app.examplePurpose")}</small>
             </label>
+            <button
+              type="button"
+              className="advanced-toggle"
+              aria-expanded={agentAdvancedOpen}
+              onClick={() => setAgentAdvancedOpen((value) => !value)}
+            >
+              <span>{agentAdvancedOpen ? t("dialog.hideAdvanced") : t("dialog.advancedOptions")}</span>
+              <span aria-hidden="true">{agentAdvancedOpen ? "−" : "+"}</span>
+            </button>
+            {agentAdvancedOpen && (
+              <label className="agent-markdown-field">
+                {t("dialog.markdownEditor")}
+                <span className="field-hint">{t("dialog.markdownEditorHint")}</span>
+                <textarea
+                  className="agent-markdown-draft"
+                  value={agentMarkdownDraft}
+                  onChange={(event) => setAgentMarkdownDraft(event.target.value)}
+                  rows={15}
+                  spellCheck={false}
+                />
+              </label>
+            )}
             <div className="dialog-actions">
               <button
                 type="button"
                 className="quiet-button"
                 onClick={() => setAgentDialogOpen(false)}
               >
-                Cancel
+                {t("dialog.cancel")}
               </button>
               <button
                 type="submit"
                 className="primary-button"
                 disabled={busy || !agentName.trim() || !agentPurpose.trim()}
               >
-                Create agent
+                {t("dialog.createAgent")}
               </button>
             </div>
           </form>
@@ -990,17 +1074,17 @@ export function App() {
       )}
       {deleteAllAgentsOpen && (
         <div className="modal-backdrop">
-          <section className="agent-dialog delete-agent-dialog" role="dialog" aria-label="Move all agents to recovery">
-            <span className="eyebrow">RECOVERABLE DELETE</span>
-            <h2>Move all agents to recovery?</h2>
+          <section className="agent-dialog delete-agent-dialog" role="dialog" aria-label={t("dialog.moveAllQuestion")}>
+            <span className="eyebrow">{t("app.recoverableDelete")}</span>
+            <h2>{t("dialog.moveAllQuestion")}</h2>
             <p className="file-path-preview">
-              {project.agents.length} agent{project.agents.length === 1 ? "" : "s"} will leave the project tree and remain recoverable. No file will be permanently deleted.
+              {t("dialog.noPermanentDelete", { count: project.agents.length, plural: project.agents.length === 1 ? "" : "s" })}
             </p>
             <ul className="agent-bulk-list">
               {project.agents.map((agent) => <li key={agent.id}><strong>{agent.name}</strong><span>{agent.purpose}</span></li>)}
             </ul>
             <div className="dialog-actions">
-              <button type="button" className="quiet-button" onClick={() => setDeleteAllAgentsOpen(false)} disabled={busy}>Cancel</button>
+              <button type="button" className="quiet-button" onClick={() => setDeleteAllAgentsOpen(false)} disabled={busy}>{t("dialog.cancel")}</button>
               <button
                 type="button"
                 className="primary-button danger-button"
@@ -1020,7 +1104,7 @@ export function App() {
                   }
                 }}
               >
-                Move all to recovery
+                {t("app.moveAllToRecovery")}
               </button>
             </div>
           </section>
@@ -1054,8 +1138,8 @@ export function App() {
       />}
       {templatesOpen && <TemplateGallery busy={busy} onCancel={() => setTemplatesOpen(false)} onApply={(template) => void applySelectedTemplate(template)} />}
       {assistantOpen && <AssistantPanel busy={busy} onCancel={() => setAssistantOpen(false)} onApply={(proposal) => void applyAssistantProposal(proposal)} />}
-      {selectedSimulationEvent && <div className="modal-backdrop"><section className="agent-dialog simulation-event-dialog" role="dialog" aria-label="Simulation event"><span className="eyebrow">SYNTHETIC EVENT</span><h2>{selectedSimulationEvent.sender} → {selectedSimulationEvent.receiver}</h2><dl className="event-details"><dt>Relation</dt><dd>{selectedSimulationEvent.relation}</dd><dt>Payload</dt><dd>{selectedSimulationEvent.payload}</dd><dt>Files read</dt><dd>{selectedSimulationEvent.filesRead.join(", ") || "None"}</dd><dt>Files written</dt><dd>{selectedSimulationEvent.filesWritten.join(", ") || "None"}</dd><dt>State</dt><dd>{selectedSimulationEvent.before} → {selectedSimulationEvent.after}</dd></dl><div className="dialog-actions"><button className="primary-button" onClick={() => setSelectedSimulationEvent(null)}>Close</button></div></section></div>}
-      {skillImport && <SkillImportPreview skillName={skillImport.skillName} files={skillImport.files} collisions={skillImport.collisions} hasExecutableLookingFiles={skillImport.hasExecutableLookingFiles} onCancel={() => setSkillImport(null)} onImport={async () => { try { await applySkillImport(skillImport.sourcePath, project.root); setSkillImport(null); await refreshSkills(project.root); setNotice({ tone: "success", message: "Skill imported as inert local data." }); } catch (error) { setNotice({ tone: "error", message: errorMessage(error) }); } }} />}
+      {selectedSimulationEvent && <div className="modal-backdrop"><section className="agent-dialog simulation-event-dialog" role="dialog" aria-label={t("dialog.simulationEvent")}><span className="eyebrow">{t("app.syntheticEvent")}</span><h2>{selectedSimulationEvent.sender} → {selectedSimulationEvent.receiver}</h2><dl className="event-details"><dt>{t("dialog.relation")}</dt><dd>{selectedSimulationEvent.relation}</dd><dt>{t("dialog.payload")}</dt><dd>{selectedSimulationEvent.payload}</dd><dt>{t("dialog.filesRead")}</dt><dd>{selectedSimulationEvent.filesRead.join(", ") || t("common.none")}</dd><dt>{t("dialog.filesWritten")}</dt><dd>{selectedSimulationEvent.filesWritten.join(", ") || t("common.none")}</dd><dt>{t("dialog.state")}</dt><dd>{selectedSimulationEvent.before} → {selectedSimulationEvent.after}</dd></dl><div className="dialog-actions"><button className="primary-button" onClick={() => setSelectedSimulationEvent(null)}>{t("dialog.closeEvent")}</button></div></section></div>}
+      {skillImport && <SkillImportPreview skillName={skillImport.skillName} files={skillImport.files} collisions={skillImport.collisions} hasExecutableLookingFiles={skillImport.hasExecutableLookingFiles} onCancel={() => setSkillImport(null)} onImport={async () => { try { await applySkillImport(skillImport.sourcePath, project.root); setSkillImport(null); await refreshSkills(project.root); setNotice({ tone: "success", message: t("app.skillImported") }); } catch (error) { setNotice({ tone: "error", message: errorMessage(error) }); } }} />}
       {paletteOpen && <CommandPalette actions={paletteActions} onClose={() => setPaletteOpen(false)} />}
     </div>
   );
@@ -1074,6 +1158,7 @@ function TreeNode(
     onRequestDelete: (agentId: string) => void;
   },
 ) {
+  const { t } = useLanguage();
   const [expanded, setExpanded] = useState(true);
   const agent = node.kind === "directory"
     ? agents.find((item) => item.path === node.path)
@@ -1101,7 +1186,7 @@ function TreeNode(
             }
           }}
         >
-          <span>{expanded ? <ChevronDown /> : <ChevronRight />}</span>
+          <span className="tree-disclosure-mark" aria-hidden="true">{expanded ? "−" : "+"}</span>
           <span className="tree-directory-copy">
             <strong>{node.name}</strong>
             {agent && <small>{agent.purpose}</small>}
@@ -1111,8 +1196,8 @@ function TreeNode(
               variant="ghost"
               size="icon"
               className="tree-add-file"
-              title={`Add file to ${agent.name}`}
-              aria-label={`Add file to ${agent.name}`}
+              title={t("app.addFileTo", { name: agent.name })}
+              aria-label={t("app.addFileTo", { name: agent.name })}
               onClick={(event) => {
                 event.stopPropagation();
                 onAddFile(agent);
@@ -1124,8 +1209,8 @@ function TreeNode(
               variant="ghost"
               size="icon"
               className="tree-delete"
-              title={`Move ${agent.name} to recovery`}
-              aria-label={`Move ${agent.name} to recovery`}
+              title={t("app.moveToRecoveryFor", { name: agent.name })}
+              aria-label={t("app.moveToRecoveryFor", { name: agent.name })}
               onClick={(event) => {
                 event.stopPropagation();
                 onRequestDelete(agent.id);
@@ -1161,15 +1246,14 @@ function TreeNode(
           }`}
           onClick={() => onOpen(node.path)}
         >
-          <span>·</span>
           <span>{node.name}</span>
         </button>
         <Button
           variant="ghost"
           size="icon"
           className="tree-reveal"
-          aria-label={`Reveal ${node.path} in Finder`}
-          title={`Reveal ${node.path} in Finder`}
+          aria-label={t("app.revealFile", { path: node.path })}
+          title={t("app.revealFile", { path: node.path })}
           onClick={() => onReveal(node.path)}
         ><Eye /></Button>
       </div>
@@ -1189,7 +1273,13 @@ function filterTree(nodes: FileTreeNode[], query: string): FileTreeNode[] {
 }
 
 function PaneDivider({ side, onStart }: { side: "nav" | "flow"; onStart: () => void }) {
-  return <div className={`pane-divider pane-divider-${side}`} role="separator" aria-orientation="vertical" aria-label={`Resize ${side === "nav" ? "navigator" : "flow"}`} onPointerDown={(event) => { event.preventDefault(); onStart(); }}><span /></div>;
+  const { t } = useLanguage();
+  return <div className={`pane-divider pane-divider-${side}`} role="separator" aria-orientation="vertical" aria-label={t("app.resizePane", { pane: side === "nav" ? t("app.paneNavigator") : t("app.paneFlow") })} onPointerDown={(event) => { event.preventDefault(); onStart(); }}><span /></div>;
+}
+
+function NavSectionDivider({ label, onStart }: { label: string; onStart: () => void }) {
+  const { t } = useLanguage();
+  return <div className="nav-section-divider" role="separator" aria-orientation="horizontal" aria-label={t("app.resizeSection", { pane: label })} onPointerDown={(event) => { event.preventDefault(); onStart(); }}><span /></div>;
 }
 
 function MarkdownEditor(
@@ -1199,6 +1289,7 @@ function MarkdownEditor(
     onSave: () => void;
   },
 ) {
+  const { t } = useLanguage();
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
   useEffect(() => {
@@ -1208,6 +1299,7 @@ function MarkdownEditor(
       extensions: [
         history(),
         markdown(),
+        EditorView.lineWrapping,
         highlightSelectionMatches(),
         keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap, {
           key: "Mod-s",
@@ -1257,18 +1349,18 @@ function MarkdownEditor(
       <div
         className="editor codemirror-editor"
         ref={host}
-        aria-label="Markdown editor"
+        aria-label={t("app.markdownEditor")}
       />
       {ghost && (
         <div className="ghost-example">
-          <div><span className="eyebrow">EXAMPLE</span><p>Preview only — this file stays empty until you choose to use it.</p></div>
+          <div><span className="eyebrow">{t("app.example")}</span><p>{t("app.examplePreview")}</p></div>
           <pre>{ghost}</pre>
-          <button className="quiet-button" onClick={useGhost}>Use example</button>
+          <button className="quiet-button" onClick={useGhost}>{t("app.useExample")}</button>
         </div>
       )}
       <div className="editor-actions">
         <span className="editor-hint">
-          ⌘S save · ⌘F search · ⌘Z undo · ⌘⇧Z redo
+          {t("app.editorShortcuts")}
         </span>
       </div>
     </>
@@ -1316,7 +1408,7 @@ function FlowNode({
       <Bot className="agent-glyph" aria-hidden="true" />
       <span>
         <strong>{node.name}</strong>
-        <small>agent</small>
+        <small>{useLanguage().t("app.agent")}</small>
       </span>
     </button>
   );
@@ -1332,9 +1424,10 @@ function Welcome(
     onCancelImport: () => void;
   },
 ) {
+  const { t } = useLanguage();
   const [openPath, setOpenPath] = useState("");
   const [parentPath, setParentPath] = useState("");
-  const [projectName, setProjectName] = useState("My Agent Project");
+  const [projectName, setProjectName] = useState(() => t("welcome.defaultProjectName"));
   const [localNotice, setLocalNotice] = useState<string | null>(null);
   const choose = async (setter: (value: string) => void) => {
     try {
@@ -1347,26 +1440,23 @@ function Welcome(
   return (
     <div className="welcome-shell">
       <div className="welcome-column">
-        <span className="eyebrow">LOCAL-FIRST DESKTOP APP</span>
+        <span className="eyebrow">{t("welcome.localDesktop")}</span>
         <h1>Agent Lab</h1>
-        <p className="welcome-lede">
-          Learn agent architectures by building the real, readable files behind
-          them.
-        </p>
+        <p className="welcome-lede">{t("welcome.lede")}</p>
         <section className="welcome-section">
-          <div className="section-label">Open existing project</div>
+          <div className="section-label">{t("welcome.openExisting")}</div>
           <div className="input-row">
             <input
               value={openPath}
               onChange={(event) => setOpenPath(event.target.value)}
               placeholder="/Users/you/Documents/my-agent-project"
-              aria-label="Existing project path"
+              aria-label={t("welcome.existingPath")}
             />
             <button
               className="quiet-button"
               onClick={() => void choose(setOpenPath)}
             >
-              Choose
+              {t("app.chooseFolder")}
             </button>
           </div>
           <button
@@ -1374,30 +1464,30 @@ function Welcome(
             disabled={busy || !openPath.trim()}
             onClick={() => onInspect(openPath.trim())}
           >
-            Open project
+            {t("welcome.open")}
           </button>
         </section>
         <section className="welcome-section">
-          <div className="section-label">Create new project</div>
+          <div className="section-label">{t("welcome.createNew")}</div>
           <div className="input-stack">
             <input
               value={projectName}
               onChange={(event) => setProjectName(event.target.value)}
-              placeholder="My Agent Project"
-              aria-label="Project name"
+              placeholder={t("welcome.defaultProjectName")}
+              aria-label={t("welcome.projectName")}
             />
             <div className="input-row">
               <input
                 value={parentPath}
                 onChange={(event) => setParentPath(event.target.value)}
-                placeholder="Parent folder"
-                aria-label="Parent folder path"
+                placeholder={t("welcome.parentFolder")}
+                aria-label={t("app.parentFolderPath")}
               />
               <button
                 className="quiet-button"
                 onClick={() => void choose(setParentPath)}
               >
-                Choose
+                {t("app.chooseFolder")}
               </button>
             </div>
           </div>
@@ -1406,7 +1496,7 @@ function Welcome(
             disabled={busy || !parentPath.trim() || !projectName.trim()}
             onClick={() => onCreate(parentPath.trim(), projectName.trim())}
           >
-            Create project
+            {t("welcome.create")}
           </button>
         </section>
         {(notice || localNotice) && (
@@ -1415,7 +1505,7 @@ function Welcome(
           </div>
         )}
         <p className="welcome-footnote">
-          No account. No cloud. No agent execution.
+          {t("welcome.noCloud")}
         </p>
         {importSummary && <ImportReview summary={importSummary} busy={busy} onCancel={onCancelImport} onOpen={() => { onCancelImport(); onOpen(importSummary.root); }} />}
       </div>

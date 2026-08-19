@@ -306,6 +306,17 @@ Reprendre seulement les principes :
 
 > **Nothing should be more than one click away from the thing it represents.**
 
+## 5.4 Design visuel verrouillé
+
+Le design natif macOS actuellement livré est une décision produit verrouillée.
+La référence détaillée se trouve dans `DESIGN.md` à la racine du projet.
+
+Les futures fonctionnalités doivent réutiliser fidèlement ses proportions,
+sa typographie, ses couleurs, ses séparateurs, ses arrondis, ses états de
+sélection et sa hiérarchie de panneaux. Une modification visuelle nécessite une
+validation explicite du propriétaire. Une demande de changement de comportement
+ou de délai d'interaction ne constitue pas une autorisation de redesign.
+
 Exemples :
 
 - cliquer un agent → voir sa définition ;

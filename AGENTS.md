@@ -13,4 +13,11 @@ Use a bounded worker only when the task is genuinely isolated and delegation sav
 
 Preserve local-first behavior, filesystem-as-source-of-truth, project-root confinement, traversal prevention, explicit destructive actions, recoverable deletion, and no arbitrary execution of project content. Keep the product simple and readable.
 
+Before changing UI code, read `DESIGN.md`. The current macOS visual design is a
+locked product decision. Keep one visual system, reuse the existing tokens and
+interaction patterns, and do not change color, typography, proportions,
+surfaces, radii, selection treatment, or panel composition without explicit
+owner approval. A request to change behavior or timing does not authorize a
+visual redesign.
+
 Do not start the next milestone before the active milestone has a supervisor PASS. Update `PLAN.md` only when evidence changes.

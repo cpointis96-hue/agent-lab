@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import type { Agent } from "../domain/project";
+import { useLanguage } from "../i18n/language";
 
 type RenameAgentDialogProps = {
   agent: Agent;
@@ -11,21 +12,22 @@ type RenameAgentDialogProps = {
 export function RenameAgentDialog(
   { agent, busy, onCancel, onSave }: RenameAgentDialogProps,
 ) {
+  const { t } = useLanguage();
   const [name, setName] = useState(agent.name);
   return (
     <div className="modal-backdrop">
       <form
         className="agent-dialog"
-        aria-label="Rename agent"
+        aria-label={t("dialog.renameAgent")}
         onSubmit={(event: FormEvent) => {
           event.preventDefault();
           onSave(name.trim());
         }}
       >
-        <span className="eyebrow">RENAME AGENT</span>
-        <h2>Rename {agent.name}</h2>
+        <span className="eyebrow">{t("dialog.renameAgent")}</span>
+        <h2>{t("dialog.rename")} : {agent.name}</h2>
         <label>
-          Name
+          {t("dialog.name")}
           <input
             autoFocus
             value={name}
@@ -33,7 +35,7 @@ export function RenameAgentDialog(
           />
         </label>
         <p className="file-path-preview">
-          Renames <code>{agent.path}</code> on disk.
+          {t("dialog.renameOnDisk", { path: agent.path })}
         </p>
         <div className="dialog-actions">
           <button
@@ -42,14 +44,14 @@ export function RenameAgentDialog(
             onClick={onCancel}
             disabled={busy}
           >
-            Cancel
+            {t("dialog.cancel")}
           </button>
           <button
             type="submit"
             className="primary-button"
             disabled={busy || !name.trim()}
           >
-            Rename agent
+            {t("dialog.rename")}
           </button>
         </div>
       </form>

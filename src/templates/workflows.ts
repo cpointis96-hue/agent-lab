@@ -1,4 +1,5 @@
 import type { Relation } from "../domain/graph";
+import { agentMarkdownFor } from "../domain/agentPresets";
 
 export type WorkflowTemplate = {
   id: string;
@@ -21,7 +22,7 @@ export const proposalForTemplate = (template: WorkflowTemplate): TemplateProposa
   const agents = template.agents.map((agent) => ({ ...agent, id: `agent:${slug(agent.name)}` }));
   return {
     agents,
-    files: agents.map((agent) => ({ path: `agents/${slug(agent.name)}/AGENT.md`, content: `# ${agent.name}\n\n## Purpose\n\n${agent.purpose}\n` })),
+    files: agents.map((agent) => ({ path: `agents/${slug(agent.name)}/AGENT.md`, content: agentMarkdownFor(agent.name, agent.purpose) })),
     edges: template.edges.map((edge) => {
       const source = agents[edge.source].id;
       const target = agents[edge.target].id;
