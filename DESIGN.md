@@ -164,3 +164,19 @@ To ask Codex to restore it, say:
 
 Codex must then inspect the worktree, show the proposed file changes, and avoid
 touching project data such as `agents/`, `runs/`, or `agent-lab.json`.
+
+## Approved readability refinement — 2026-08-19
+
+The locked visual language remains unchanged. The following small refinements
+are approved as part of the design reference:
+
+- New-agent creation offers ten concise starter roles with prefilled names,
+  purposes, and a short explanation of the generated `AGENT.md` brief.
+- Agent and file-tree labels use the existing semantic text tokens with a
+  modestly clearer scale: 12 px primary names and 11 px supporting metadata.
+- Folder disclosure uses a thin, compact corner indicator instead of a large
+  chevron, preserving the same interaction and selection behavior.
+
+These are readability and discoverability improvements only. They do not
+change the app's proportions, surfaces, colors, typography hierarchy, radii,
+selection treatment, or native macOS visual direction.

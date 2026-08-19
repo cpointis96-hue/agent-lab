@@ -88,14 +88,14 @@ import { SkillImportPreview } from "./components/SkillImportPreview";
 import type { SkillImportPreview as SkillImportPreviewData } from "./services/projectService";
 import { proposalForTemplate, type WorkflowTemplate } from "./templates/workflows";
 import { Button } from "./components/ui/button";
-import { Bot, ChevronDown, ChevronRight, Eye, FilePlus2, FolderOpen, MoreHorizontal, PanelLeft, PanelRight, Plus, Save, Search, Sparkles, Trash2, Workflow, X } from "lucide-react";
+import { Bot, ChevronRight, Eye, FilePlus2, FolderOpen, MoreHorizontal, PanelLeft, PanelRight, Plus, Save, Search, Sparkles, Trash2, Workflow, X } from "lucide-react";
 import type { RunEvent, RunSummary } from "./domain/runs";
 import { RunControls, RunInspector } from "./components/RunControls";
 import { RunTrace } from "./components/RunTrace";
 import { UsageSummary } from "./components/UsageSummary";
+import { AGENT_PRESETS, DEFAULT_AGENT_PRESET } from "./domain/agentPresets";
 
 type Notice = { tone: "error" | "success"; message: string } | null;
-const defaultPurpose = "Define this agent's stable responsibility.";
 const errorMessage = (error: unknown) =>
   (() => {
     const raw = error && typeof error === "object" && "message" in error
@@ -116,8 +116,9 @@ export function App() {
   const [notice, setNotice] = useState<Notice>(null);
   const [busy, setBusy] = useState(false);
   const [agentDialogOpen, setAgentDialogOpen] = useState(false);
-  const [agentName, setAgentName] = useState("Researcher");
-  const [agentPurpose, setAgentPurpose] = useState(defaultPurpose);
+  const [agentPresetId, setAgentPresetId] = useState(DEFAULT_AGENT_PRESET.id);
+  const [agentName, setAgentName] = useState(DEFAULT_AGENT_PRESET.name);
+  const [agentPurpose, setAgentPurpose] = useState(DEFAULT_AGENT_PRESET.purpose);
   const [addFileDialogOpen, setAddFileDialogOpen] = useState(false);
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [deletePreview, setDeletePreview] = useState<DeletePreview | null>(null);
@@ -572,8 +573,9 @@ export function App() {
                 title="Create agent"
                 aria-label="Create agent"
                 onClick={() => {
-                  setAgentName("Researcher");
-                  setAgentPurpose(defaultPurpose);
+                  setAgentPresetId(DEFAULT_AGENT_PRESET.id);
+                  setAgentName(DEFAULT_AGENT_PRESET.name);
+                  setAgentPurpose(DEFAULT_AGENT_PRESET.purpose);
                   setAgentDialogOpen(true);
                 }}
                 disabled={busy}
@@ -860,6 +862,15 @@ export function App() {
           >
             <span className="eyebrow">NEW AGENT</span>
             <h2>Create an agent</h2>
+            <label className="preset-label">Starter role<select value={agentPresetId} onChange={(event) => {
+              const preset = AGENT_PRESETS.find((item) => item.id === event.target.value) ?? DEFAULT_AGENT_PRESET;
+              setAgentPresetId(preset.id);
+              setAgentName(preset.name);
+              setAgentPurpose(preset.purpose);
+            }}>
+              {AGENT_PRESETS.map((preset) => <option key={preset.id} value={preset.id}>{preset.name}</option>)}
+            </select></label>
+            <div className="agent-preset-note"><strong>{AGENT_PRESETS.find((preset) => preset.id === agentPresetId)?.summary}</strong><span>Creates <code>agents/{agentName.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "agent"}/AGENT.md</code> with this role as its starting brief.</span></div>
             <label>
               Name<input
                 autoFocus
@@ -1069,7 +1080,7 @@ function TreeNode(
             }
           }}
         >
-          <span>{expanded ? <ChevronDown /> : <ChevronRight />}</span>
+          <span className={`tree-disclosure-indicator ${expanded ? "expanded" : ""}`} aria-hidden="true" />
           <span className="tree-directory-copy">
             <strong>{node.name}</strong>
             {agent && <small>{agent.purpose}</small>}
