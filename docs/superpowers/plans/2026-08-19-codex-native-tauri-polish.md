@@ -8,7 +8,7 @@
 
 **Tech Stack:** React, TypeScript, Tauri, CodeMirror, Lucide React, plain CSS.
 
-**Spec:** `/Users/aiomi/Documents/ChatGPT/Agent-Lab/DESIGN.md`
+**Spec:** `DESIGN.md` at the repository root
 
 ## Global Constraints
 
