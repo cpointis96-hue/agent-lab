@@ -68,7 +68,6 @@ import { useProjectFilePoller } from "./hooks/useProjectFilePoller";
 import { FileCatalog } from "./components/FileCatalog";
 import { ghostExampleFor } from "./domain/ghostExamples";
 import type { UiMode } from "./domain/uiMode";
-import { ModeSwitch } from "./components/ModeSwitch";
 import { EdgeInspector } from "./components/EdgeInspector";
 import { defaultEdge, edgeId, type WorkflowEdge } from "./domain/graph";
 import { TemplateGallery } from "./components/TemplateGallery";
@@ -500,20 +499,6 @@ export function App() {
     <div className="app-shell">
       <header className="topbar">
         <div className="brand-mark"><span className="brand-dot" aria-hidden="true" />Agent Lab</div>
-        <div className="project-heading">
-          <span className="eyebrow">LOCAL PROJECT</span>
-          <strong>{project.project.name}</strong>
-          <ModeSwitch
-            mode={mode}
-            busy={busy}
-            onChange={(nextMode) => {
-              setMode(nextMode);
-              void setUiMode(project.root, nextMode).catch((error) =>
-                setNotice({ tone: "error", message: errorMessage(error) })
-              );
-            }}
-          />
-        </div>
         <div className="topbar-actions">
           <Button
             variant="ghost"

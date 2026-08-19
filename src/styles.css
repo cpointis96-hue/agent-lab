@@ -548,3 +548,79 @@ body, .app-shell, .welcome-shell { color: var(--ui-text); background: var(--ui-b
   .modal-backdrop { background: rgba(0,0,0,.48); }
   .ghost-example, .template-files, .template-agents, .proposal-card, .proposal-agents > div, .proposal-files, .compare-grid pre, .import-list { background: var(--ui-surface); border-color: var(--ui-line); color: var(--ui-text-secondary); }
 }
+
+/* Final surface pass: every panel inherits the active macOS appearance. */
+.topbar {
+  grid-template-columns: minmax(0, 1fr) auto;
+  background: var(--ui-bg);
+  border-bottom-color: var(--ui-line);
+}
+.brand-mark { grid-column: 1; }
+.topbar-actions { grid-column: 2; }
+.topbar-templates, .topbar-assistant { grid-column: 2; }
+
+.file-catalog,
+.simulation-controls,
+.trace-panel,
+.lesson-panel,
+.context-exercise,
+.skill-assignment,
+.skill-inspector,
+.skill-import-action,
+.recovery-panel,
+.ghost-example,
+.compare-grid pre,
+.delete-preview ul,
+.agent-bulk-list,
+.template-agents,
+.template-files,
+.import-list,
+.proposal-card,
+.proposal-agents > div,
+.proposal-files {
+  background: var(--ui-surface);
+  color: var(--ui-text-secondary);
+  border-color: var(--ui-line);
+}
+.file-inspector pre,
+.skill-files,
+.skill-import-files {
+  background: var(--ui-surface-raised);
+  color: var(--ui-text-secondary);
+  border-color: var(--ui-line);
+}
+.flow-canvas { background-color: var(--ui-surface); border-color: var(--ui-line); }
+.flow-node { background: var(--ui-surface-raised); color: var(--ui-text); border-color: var(--ui-line-strong); }
+.flow-edge { background: color-mix(in srgb, var(--ui-surface) 92%, transparent); color: var(--ui-text-secondary); }
+.simulation-packet, .trust-badge, .assistant-provider {
+  background: var(--ui-surface-selected);
+  color: var(--ui-text-secondary);
+  border-color: var(--ui-line-strong);
+}
+.notice,
+.agent-dialog,
+.assistant-dialog,
+.template-dialog,
+.command-palette,
+.conflict-dialog {
+  background: var(--ui-surface-raised);
+  color: var(--ui-text);
+  border-color: var(--ui-line-strong);
+}
+.edge-dialog select,
+.edge-dialog textarea,
+.agent-dialog textarea,
+.ui-card {
+  background: var(--ui-surface-raised);
+  color: var(--ui-text);
+  border-color: var(--ui-line-strong);
+}
+.welcome-shell { background: var(--ui-bg); }
+.welcome-section { border-color: var(--ui-line); }
+.run-list-item:hover, .run-list-item.selected { background: var(--ui-surface-selected); border-color: var(--ui-line); }
+
+@media (prefers-color-scheme: dark) {
+  .topbar { background: var(--ui-bg); }
+  .flow-edge { background: rgba(32,32,35,.92); }
+  .modal-backdrop { background: rgba(0,0,0,.48); }
+}
