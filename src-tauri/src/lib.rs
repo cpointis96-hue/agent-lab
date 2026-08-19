@@ -373,7 +373,7 @@ fn create_agent(
         .map_err(|error| format!("Could not create agent directory: {error}"))?;
 
     let content = format!(
-        "# {clean_name}\n\n## Purpose\n\n{clean_purpose}\n\n## Responsibilities\n\n- Define the stable responsibility of this agent.\n\n## Inputs\n\n- Describe what this agent needs to begin.\n\n## Outputs\n\n- Describe what this agent produces.\n\n## Boundaries\n\n- Describe what this agent should not do.\n"
+        "# {clean_name}\n\n## Purpose\n\n{clean_purpose}\n\n## Responsibilities\n\n- {clean_purpose}\n\n## Inputs\n\n- A focused request that matches this responsibility.\n- Relevant local files or context when needed.\n\n## Outputs\n\n- A concise result that addresses the request.\n- State uncertainty and cite sources when applicable.\n\n## Boundaries\n\n- Stay within this responsibility.\n- Do not invent facts or claim unverified work as complete.\n- Ask before destructive or external actions.\n"
     );
     write_new_file(&agent_directory.join("AGENT.md"), &content)?;
 
@@ -1410,6 +1410,12 @@ mod tests {
         )
         .unwrap();
         let agent_path = "agents/researcher/AGENT.md".to_string();
+        let created_content =
+            fs::read_to_string(PathBuf::from(&project.root).join("agents/researcher/AGENT.md"))
+                .unwrap();
+        assert!(created_content.contains("A focused request that matches this responsibility."));
+        assert!(created_content.contains("Do not invent facts or claim unverified work as complete."));
+        assert!(!created_content.contains("Describe what this agent"));
         let updated = "# Researcher\n\n## Purpose\n\nFind and verify reliable information.\n";
         write_project_file(
             project.root.clone(),
