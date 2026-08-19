@@ -567,14 +567,14 @@ export function App() {
             <span className="eyebrow">PROJECT</span>
             <div>
               <Button
-                variant="outline"
+                variant="ghost"
                 size="icon"
                 title="Reveal project in Finder"
                 aria-label="Reveal project in Finder"
                 onClick={() => void revealInFinder(project.root)}
               ><FolderOpen /></Button>
               <Button
-                variant="outline"
+                variant="ghost"
                 size="icon"
                 title="Add file"
                 aria-label="Add file"
@@ -582,7 +582,7 @@ export function App() {
                 disabled={busy}
               ><FilePlus2 /></Button>
               <Button
-                variant="outline"
+                variant="ghost"
                 size="icon"
                 title="Create agent"
                 aria-label="Create agent"
@@ -689,7 +689,6 @@ export function App() {
             )
             : (
               <div className="empty-state">
-                <span className="large-glyph">◌</span>
                 <h2>Choose a Markdown file.</h2>
                 <p>
                   The navigator reflects the real files inside this project.
