@@ -55,3 +55,7 @@ Commencer par débloquer l’outil Apple, relancer les tests Rust et reconstruir
 Un futur provider réseau exige un contrat explicite, consentement avant transmission du contenu, permissions et tests de panne ; rien de cela n’est implicitement livré par le provider local. Les conditions de signature/notarisation et de distribution restent à régler.
 
 `PROJECT.md` décrit le produit et ses ambitions ; `PLAN.md` garde l’historique de progression, y compris quelques états de tableau plus anciens que les sections de validation. L’historique Git original a été conservé sans changer ses dates. Les worktrees, caches, dépendances et builds ne font pas partie de l’archive de sources. Le design existant n’a pas été modifié.
+
+## Dépôt et téléchargement
+
+[Voir le dépôt](https://github.com/cpointis96-hue/agent-lab) · [Télécharger les sources ZIP](https://github.com/cpointis96-hue/agent-lab/archive/HEAD.zip). Le ZIP contient les sources ; le bundle natif reste à reconstruire et vérifier.
