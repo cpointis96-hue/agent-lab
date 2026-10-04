@@ -1,6 +1,14 @@
 # Agent Lab
 
-Application macOS locale pour concevoir et comprendre des architectures d’agents : fichiers Markdown, graphe de rôles et handoffs, édition, exercices, simulation et traces de runs. Les fichiers du projet sont la source de vérité ; `agent-lab.json` conserve les métadonnées de l’application.
+## En bref
+
+**Ce que c’est :** une application macOS locale pour concevoir et comprendre des architectures d’agents.
+
+**À quoi elle sert :** organiser des fichiers Markdown, des rôles, des handoffs et des exercices, puis simuler un run et en conserver la trace.
+
+**Ce qui a été réalisé :** éditeur, navigation de fichiers, création et renommage, templates, catalogue pédagogique, modes Learn/Build, simulation, approbations et historique local des runs.
+
+**Technologies :** Tauri, React, CodeMirror, Rust, fichiers Markdown et `agent-lab.json`.
 
 ## État et périmètre
 
